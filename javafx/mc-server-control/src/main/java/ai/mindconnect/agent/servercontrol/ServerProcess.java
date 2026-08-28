@@ -21,14 +21,14 @@ public final class ServerProcess {
     private static final int LOG_LINES = 400;
 
     private final ServerHome home;
-    private final CentralRepository repository;
+    private final ServerReleases repository;
     private final Deque<String> log = new ArrayDeque<>();
 
     private volatile Process process;
     private volatile int port;
     private volatile String version;
 
-    public ServerProcess(ServerHome home, CentralRepository repository) {
+    public ServerProcess(ServerHome home, ServerReleases repository) {
         this.home = home;
         this.repository = repository;
     }
@@ -45,7 +45,7 @@ public final class ServerProcess {
         } else if (Files.isDirectory(repository.libDir(version))) {
             command.add("-cp");
             command.add(repository.libDir(version) + java.io.File.separator + "*");
-            command.add(CentralRepository.MAIN_CLASS);
+            command.add(ServerReleases.MAIN_CLASS);
         } else {
             throw new IOException("Version " + version + " is not installed yet.");
         }

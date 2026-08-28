@@ -1,6 +1,6 @@
 package ai.mindconnect.agent.adminlauncher;
 
-import ai.mindconnect.agent.servercontrol.CentralRepository;
+import ai.mindconnect.agent.servercontrol.ServerReleases;
 import ai.mindconnect.agent.servercontrol.ServerHome;
 import ai.mindconnect.agent.servercontrol.ServerProcess;
 

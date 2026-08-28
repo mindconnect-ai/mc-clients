@@ -1,6 +1,6 @@
 package ai.mindconnect.agent.adminlauncher;
 
-import ai.mindconnect.agent.servercontrol.CentralRepository;
+import ai.mindconnect.agent.servercontrol.ServerReleases;
 import ai.mindconnect.agent.servercontrol.ServerHome;
 import ai.mindconnect.agent.servercontrol.ServerProcess;
 import ai.mindconnect.agent.servercontrol.fx.ServerControlPanel;
@@ -32,7 +32,7 @@ import java.io.File;
 public class LauncherApp extends Application {
 
     private final ServerHome home = new ServerHome();
-    private final CentralRepository repository = new CentralRepository(home);
+    private final ServerReleases repository = new ServerReleases(home);
     private final ServerProcess server = new ServerProcess(home, repository);
 
     private final SuiFxOverlay overlay = new SuiFxOverlay();
