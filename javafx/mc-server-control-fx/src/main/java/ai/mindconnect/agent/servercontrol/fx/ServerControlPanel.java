@@ -1,6 +1,6 @@
 package ai.mindconnect.agent.servercontrol.fx;
 
-import ai.mindconnect.agent.servercontrol.CentralRepository;
+import ai.mindconnect.agent.servercontrol.ServerReleases;
 import ai.mindconnect.agent.servercontrol.ServerHome;
 import ai.mindconnect.agent.servercontrol.ServerProcess;
 import ai.mindconnect.ui.javafx.SuiFxEventBus;
@@ -37,24 +37,24 @@ import java.util.stream.Collectors;
 public final class ServerControlPanel {
 
     private final ServerHome home;
-    private final CentralRepository repository;
+    private final ServerReleases releases;
     private final ServerProcess server;
     private final SuiFxEventBus bus;
     private final Consumer<String> linkOpener;
 
     private volatile ServerProcess.AdoptedServer adopted;
-    private volatile List<String> releasedVersions = List.of();
+    private volatile List<ServerReleases.ServerRelease> catalog = List.of();
     private volatile String lastStatus = "";
     private volatile String lastLog = "";
     /** False while the host does not have the panels in the mounted tree. */
     private volatile boolean mounted = true;
 
     public ServerControlPanel(SuiFxEventBus bus, ServerHome home,
-                              CentralRepository repository, ServerProcess server,
+                              ServerReleases releases, ServerProcess server,
                               Consumer<String> linkOpener) {
         this.bus = bus;
         this.home = home;
-        this.repository = repository;
+        this.releases = releases;
         this.server = server;
         this.linkOpener = linkOpener;
         this.adopted = ServerProcess.adopt(home).orElse(null);
@@ -105,8 +105,11 @@ public final class ServerControlPanel {
 
     public UiNode versionsPanel() {
         return UiStack.of(
-                UiText.of("Releases on Maven Central. Download one, then activate it — "
-                        + "the active version is what Start launches."),
+                UiText.of("Releases from Maven Central, plus the current development build "
+                        + "from the snapshot channel. Download one, then activate it — the "
+                        + "active version is what Start launches. A snapshot keeps its "
+                        + "version while the build behind it moves on, so Download fetches "
+                        + "it again."),
                 versionsTable());
     }
 
@@ -202,19 +205,25 @@ public final class ServerControlPanel {
         var table = UiTable.of("versions-table", "Releases")
                 .column(UiColumn.text("version", "Version"))
                 .column(UiColumn.text("state", "State"))
+                .column(UiColumn.text("source", "Source"))
                 .action(UiAction.secondary("refresh-versions", "Refresh")
                         .onClick(UiTrigger.invoke("refreshVersions")))
                 .rowAction(UiAction.secondary("download", "Download")
                         .onClick(UiTrigger.invoke("downloadVersion")))
                 .rowAction(UiAction.primary("activate", "Activate")
                         .onClick(UiTrigger.invoke("activateVersion")));
-        if (releasedVersions.isEmpty()) {
-            table.row(Map.of("version", "…", "state", "loading from Maven Central"));
+        if (catalog.isEmpty()) {
+            table.row(Map.of("version", "…", "state", "loading", "source", ""));
         } else {
-            for (String version : releasedVersions) {
-                String state = version.equals(active) ? "active"
-                        : repository.isInstalled(version) ? "installed" : "—";
-                table.row(Map.of("version", version, "state", state));
+            for (var release : catalog) {
+                String state = release.version().equals(active) ? "active"
+                        : releases.isInstalled(release.version()) ? "installed" : "—";
+                // For a snapshot the build matters as much as the version: the
+                // same version can sit on disk while a newer commit is out.
+                if (release.detail() != null) state += " · " + release.detail();
+                table.row(Map.of("version", release.version(), "state", state,
+                        "source", release.source() == ServerReleases.Source.SNAPSHOT
+                                ? "snapshot" : "central"));
             }
         }
         return table;
@@ -251,8 +260,8 @@ public final class ServerControlPanel {
             }
             String version = activeVersion(env);
             try {
-                if (!repository.isInstalled(version)) {
-                    installVersion(version);
+                if (!releases.isInstalled(version)) {
+                    installVersion(releaseFor(version));
                 }
                 env.put(ServerHome.SERVER_PORT, String.valueOf(port));
                 env.put(ServerHome.ACTIVE_VERSION, version);
@@ -294,7 +303,7 @@ public final class ServerControlPanel {
         bus.registerClientHandler("downloadVersion", ctx -> {
             String version = ctx.string("version");
             try {
-                installVersion(version);
+                installVersion(releaseFor(version));
                 bus.applyPatch(UiPatch.of()
                         .patch(UiPatch.Operation.replace("versions-table", versionsTable()))
                         .toast(UiToast.success("Version " + version + " is ready.")));
@@ -349,11 +358,32 @@ public final class ServerControlPanel {
         });
     }
 
+    /**
+     * The build behind a version. Normally it comes from the catalog the
+     * versions tab loaded; when that never ran — Start on a fresh launcher,
+     * or an offline catalog — a Central release of that version is the
+     * assumption, which is what the launcher did before there was a catalog.
+     */
+    private ServerReleases.ServerRelease releaseFor(String version) {
+        return catalog.stream()
+                .filter(r -> r.version().equals(version))
+                .findFirst()
+                .orElseGet(() -> new ServerReleases.ServerRelease(version,
+                        ServerReleases.Source.CENTRAL,
+                        "https://repo1.maven.org/maven2/" + ServerReleases.GROUP_PATH + "/"
+                                + ServerReleases.APP + "/" + version + "/"
+                                + ServerReleases.APP + "-" + version + "-exec.jar",
+                        null));
+    }
+
     /** Exec jar first; Maven classpath resolution as the honest fallback. */
-    private void installVersion(String version) throws Exception {
-        server.appendLog("Downloading " + version + " from Maven Central …");
+    private void installVersion(ServerReleases.ServerRelease release) throws Exception {
+        String version = release.version();
+        server.appendLog("Downloading " + version + " from "
+                + (release.source() == ServerReleases.Source.SNAPSHOT
+                        ? "the snapshot channel" : "Maven Central") + " …");
         refreshLog();
-        boolean gotExec = repository.downloadExecJar(version, percent -> {
+        boolean gotExec = releases.downloadExecJar(release, percent -> {
             if (percent % 20 == 0) {
                 server.appendLog("Download " + percent + "%");
                 refreshLog();
@@ -363,7 +393,7 @@ public final class ServerControlPanel {
             server.appendLog("No executable jar published for " + version
                     + " — resolving the classpath with local Maven (first time only, ~1 min).");
             refreshLog();
-            repository.resolveWithMaven(version, line -> {
+            releases.resolveWithMaven(version, line -> {
                 server.appendLog(line);
                 refreshLog();
             });
@@ -377,12 +407,12 @@ public final class ServerControlPanel {
     public void refreshVersionsInBackground() {
         Thread thread = new Thread(() -> {
             try {
-                releasedVersions = repository.versions();
+                catalog = releases.catalog();
                 bus.applyPatch(UiPatch.of()
                         .patch(UiPatch.Operation.replace("versions-table", versionsTable())));
             } catch (Exception e) {
                 bus.toast(UiToast.error(String.valueOf(e.getMessage()))
-                        .title("Maven Central not reachable"));
+                        .title("Release list not reachable"));
             }
         }, "versions-refresh");
         thread.setDaemon(true);
@@ -440,11 +470,19 @@ public final class ServerControlPanel {
 
     // ── small helpers ─────────────────────────────────────────────────────
 
+    /**
+     * What Start launches when nothing is pinned: the newest RELEASE. The
+     * snapshot heads the catalog but is never the default — a development
+     * build is something you choose, not something you land on.
+     */
     private String activeVersion(Map<String, String> env) {
         String pinned = env.get(ServerHome.ACTIVE_VERSION);
         if (pinned != null && !pinned.isBlank()) return pinned;
-        if (!releasedVersions.isEmpty()) return releasedVersions.get(0);
-        return "0.0.2";
+        return catalog.stream()
+                .filter(r -> r.source() == ServerReleases.Source.CENTRAL)
+                .map(ServerReleases.ServerRelease::version)
+                .findFirst()
+                .orElse("0.0.2");
     }
 
     private static int parsePort(String raw, Map<String, String> env) {

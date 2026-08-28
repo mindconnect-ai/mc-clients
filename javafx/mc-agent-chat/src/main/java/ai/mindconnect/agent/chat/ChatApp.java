@@ -1,6 +1,6 @@
 package ai.mindconnect.agent.chat;
 
-import ai.mindconnect.agent.servercontrol.CentralRepository;
+import ai.mindconnect.agent.servercontrol.ServerReleases;
 import ai.mindconnect.agent.servercontrol.ServerHome;
 import ai.mindconnect.agent.servercontrol.ServerProcess;
 import ai.mindconnect.agent.servercontrol.fx.ScrollPaneRenderer;
@@ -45,7 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ChatApp extends Application {
 
     private final ServerHome home = new ServerHome();
-    private final CentralRepository repository = new CentralRepository(home);
+    private final ServerReleases repository = new ServerReleases(home);
     private final ServerProcess ownServer = new ServerProcess(home, repository);
     private final ChatPrefs prefs = new ChatPrefs(home);
 
