@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- Released parent from Maven Central — this repository builds standalone,
+         no monorepo checkout or SNAPSHOT parents required. -->
+    <parent>
+        <groupId>ai.mindconnect</groupId>
+        <artifactId>mc-java-parent</artifactId>
+        <version>0.0.2</version>
+        <relativePath/>
+    </parent>
+
+    <artifactId>mc-clients-javafx</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>mc-clients-javafx</name>
+    <description>JavaFX desktop clients for the MindConnect platform (mc-clients/javafx)</description>
+
+    <modules>
+        <module>mc-server-control</module>
+        <module>mc-server-control-fx</module>
+        <module>mc-agent-admin-launcher</module>
+        <module>mc-agent-chat</module>
+    </modules>
+
+</project>

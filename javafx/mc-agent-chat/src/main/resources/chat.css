@@ -1,0 +1,82 @@
+/* Chat client styling on top of the Semantic UI JavaFX defaults.
+   Model cssClass tokens arrive as JavaFX style classes (SuiFxRenderer). */
+
+.user-message {
+    -fx-background-color: #DBEAFE;
+    -fx-background-radius: 14 14 2 14;
+    -fx-padding: 10 14 10 14;
+}
+
+.bot-message {
+    -fx-background-color: #F1F5F9;
+    -fx-background-radius: 14 14 14 2;
+    -fx-padding: 10 14 10 14;
+}
+
+.msg-who .label, .msg-who {
+    -fx-text-fill: #64748B;
+    -fx-font-size: 11px;
+}
+
+.msg-body .label, .msg-body {
+    -fx-font-size: 13px;
+    -fx-wrap-text: true;
+}
+
+.tool-line .label, .tool-line {
+    -fx-text-fill: #94A3B8;
+    -fx-font-size: 12px;
+    -fx-padding: 0 0 0 6;
+}
+
+.sub-line .label, .sub-line {
+    -fx-text-fill: #7C8DB5;
+    -fx-font-size: 12px;
+    -fx-padding: 0 0 0 6;
+}
+
+.turn-status .label, .turn-status {
+    -fx-text-fill: #64748B;
+    -fx-font-style: italic;
+    -fx-font-size: 12px;
+}
+
+.side-menu {
+    -fx-min-width: 250px;
+}
+
+.transcript {
+    -fx-padding: 8;
+    -fx-spacing: 10;
+}
+
+.chat-header {
+    -fx-padding: 4 0 8 0;
+    -fx-border-color: transparent transparent #E2E8F0 transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.chat-header-name .label, .chat-header-name {
+    -fx-font-size: 17px;
+    -fx-font-weight: bold;
+}
+
+.chat-header-desc .label, .chat-header-desc {
+    -fx-text-fill: #64748B;
+    -fx-font-size: 12px;
+    -fx-wrap-text: true;
+}
+
+/* The sidebar keeps its width no matter how wide the chat content wants to be —
+   and gives it all back when collapsed to the rail. */
+.sidebar-scroll {
+    -fx-min-width: 270px;
+    -fx-pref-width: 270px;
+    -fx-max-width: 270px;
+}
+
+.sidebar-rail {
+    -fx-min-width: 44px;
+    -fx-pref-width: 44px;
+    -fx-max-width: 44px;
+}
