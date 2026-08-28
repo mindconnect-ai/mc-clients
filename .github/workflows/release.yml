@@ -1,0 +1,63 @@
+# Builds the native installers — one per platform, each with a bundled Java
+# runtime — and attaches them to the GitHub release for the pushed tag.
+# Trigger: push a tag like v1.0.0.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  installers:
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest        # Apple silicon
+            type: DMG
+            suffix: mac-aarch64
+            ext: dmg
+          - os: macos-13            # Intel Mac
+            type: DMG
+            suffix: mac-x64
+            ext: dmg
+          - os: windows-latest
+            type: MSI
+            suffix: windows-x64
+            ext: msi
+          - os: ubuntu-latest
+            type: DEB
+            suffix: linux-x64
+            ext: deb
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Build installer
+        shell: bash
+        run: |
+          mvn -B -f javafx/pom.xml -pl mc-agent-admin-launcher -am \
+              -Pinstaller package
+          mvn -B -f javafx/pom.xml -pl mc-agent-admin-launcher \
+              -Pinstaller jpackage:jpackage \
+              -Djpackage.type=${{ matrix.type }}
+
+      - name: Name the artifact after its platform
+        shell: bash
+        run: |
+          cd javafx/mc-agent-admin-launcher/target/installer
+          src=$(ls *.${{ matrix.ext }})
+          mv "$src" "mindconnect-admin-launcher-${GITHUB_REF_NAME#v}-${{ matrix.suffix }}.${{ matrix.ext }}"
+
+      - name: Attach to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: javafx/mc-agent-admin-launcher/target/installer/*.${{ matrix.ext }}
