@@ -49,6 +49,7 @@ public class LauncherApp extends Application {
         renderer.mount(ui());
 
         stage.setTitle("MindConnect Admin Launcher");
+        applyBrandIcon(stage);
         stage.setScene(new Scene(overlay, 1000, 720));
         stage.show();
 
@@ -83,6 +84,22 @@ public class LauncherApp extends Application {
                         + "`java -jar` all share this home directory — settings and downloads "
                         + "made here work there too."),
                 UiLink.external("repo", "https://github.com/mindconnect-ai", "MindConnect on GitHub"));
+    }
+
+    /** The brain icon on the window and, where the OS shows one, the dock/taskbar. */
+    private void applyBrandIcon(Stage stage) {
+        var icon = getClass().getResourceAsStream("/icon.png");
+        if (icon == null) return;
+        var image = new javafx.scene.image.Image(icon);
+        stage.getIcons().add(image);
+        try {
+            // macOS dock (when running from a jar — the packaged app brings its own .icns)
+            var awtImage = java.awt.Toolkit.getDefaultToolkit()
+                    .getImage(getClass().getResource("/icon.png"));
+            java.awt.Taskbar.getTaskbar().setIconImage(awtImage);
+        } catch (Exception | UnsatisfiedLinkError ignored) {
+            // taskbar icons are unsupported on some platforms — the window icon stands
+        }
     }
 
     /** Test hook: -Dlauncher.screenshot=/path.png renders, snapshots and exits. */

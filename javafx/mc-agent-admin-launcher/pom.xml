@@ -39,6 +39,7 @@
              rejects -SNAPSHOT, and macOS requires the first number to be >= 1. -->
         <app.version>1.0.0</app.version>
         <jpackage.type>APP_IMAGE</jpackage.type>
+        <jpackage.icon>${project.basedir}/packaging/icon.icns</jpackage.icon>
     </properties>
 
     <build>
@@ -132,6 +133,7 @@
                         <configuration>
                             <name>MindConnect Admin Launcher</name>
                             <vendor>MindConnect</vendor>
+                            <icon>${jpackage.icon}</icon>
                             <appVersion>${app.version}</appVersion>
                             <type>${jpackage.type}</type>
                             <input>${project.build.directory}/jpackage-input</input>
