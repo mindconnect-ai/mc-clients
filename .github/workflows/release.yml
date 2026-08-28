@@ -19,18 +19,22 @@ jobs:
             type: DMG
             suffix: mac-aarch64
             ext: dmg
+            icon: icon.icns
           - os: macos-13            # Intel Mac
             type: DMG
             suffix: mac-x64
             ext: dmg
+            icon: icon.icns
           - os: windows-latest
             type: MSI
             suffix: windows-x64
             ext: msi
+            icon: icon.ico
           - os: ubuntu-latest
             type: DEB
             suffix: linux-x64
             ext: deb
+            icon: icon.png
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -48,16 +52,27 @@ jobs:
               -Pinstaller package
           mvn -B -f javafx/pom.xml -pl mc-agent-admin-launcher \
               -Pinstaller jpackage:jpackage \
-              -Djpackage.type=${{ matrix.type }}
+              -Djpackage.type=${{ matrix.type }} \
+              "-Djpackage.icon=$PWD/javafx/mc-agent-admin-launcher/packaging/${{ matrix.icon }}"
 
-      - name: Name the artifact after its platform
+      - name: Name the artifacts after their platform
         shell: bash
         run: |
-          cd javafx/mc-agent-admin-launcher/target/installer
-          src=$(ls *.${{ matrix.ext }})
-          mv "$src" "mindconnect-admin-launcher-${GITHUB_REF_NAME#v}-${{ matrix.suffix }}.${{ matrix.ext }}"
+          cd javafx/mc-agent-admin-launcher/target
+          ver="${GITHUB_REF_NAME#v}"
+          # the installer with the bundled runtime …
+          src=$(ls installer/*.${{ matrix.ext }})
+          mv "$src" "installer/mindconnect-admin-launcher-${ver}-${{ matrix.suffix }}.${{ matrix.ext }}"
+          # … and the plain fat jar as the Gatekeeper-free `java -jar` fallback.
+          # JavaFX natives are platform-bound, so the jar is per platform too.
+          cp mc-agent-admin-launcher-*-all.jar \
+             "installer/mindconnect-admin-launcher-${ver}-${{ matrix.suffix }}-all.jar"
 
       - name: Attach to the release
         uses: softprops/action-gh-release@v2
         with:
-          files: javafx/mc-agent-admin-launcher/target/installer/*.${{ matrix.ext }}
+          body_path: RELEASE_NOTES.md
+          files: |
+            javafx/mc-agent-admin-launcher/target/installer/*.${{ matrix.ext }}
+            javafx/mc-agent-admin-launcher/target/installer/*-all.jar
+
