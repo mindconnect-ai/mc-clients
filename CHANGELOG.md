@@ -26,6 +26,12 @@ evergreen download and installation instructions in
 
 ### Added
 
+- **Clody, a warm look for the launcher.** Start it with
+  `-Dlauncher.theme=clody` (or `MC_LAUNCHER_THEME=clody`) for bone-and-clay
+  neutrals instead of the default cool-slate scale, at one type size up. It is
+  the desktop half of the theme the admin web UI ships, so the two read as the
+  same product. Without the flag nothing changes.
+
 - **The launcher can install development builds.** Next to the releases from
   Maven Central, the version list now offers the current snapshot from the
   server's rolling `snapshot` pre-release, with the commit and build time it

@@ -50,6 +50,7 @@ public class LauncherApp extends Application {
 
         stage.setTitle("MindConnect Admin Launcher");
         applyBrandIcon(stage);
+        applyTheme();
         stage.setScene(new Scene(overlay, 1000, 720));
         stage.show();
 
@@ -71,7 +72,9 @@ public class LauncherApp extends Application {
                 .section("versions", "Versions", panel.versionsPanel())
                 .section("environment", "Environment", panel.environmentPanel())
                 .section("about", "About", aboutPanel())
-                .initialSection("server");
+                // -Dlauncher.section=environment opens elsewhere; the
+                // screenshot hook below can only capture what is on screen.
+                .initialSection(System.getProperty("launcher.section", "server"));
     }
 
     private UiNode aboutPanel() {
@@ -100,6 +103,26 @@ public class LauncherApp extends Application {
         } catch (Exception | UnsatisfiedLinkError ignored) {
             // taskbar icons are unsupported on some platforms — the window icon stands
         }
+    }
+
+    /**
+     * A second look, opt-in: {@code -Dlauncher.theme=clody} (or
+     * {@code MC_LAUNCHER_THEME=clody}) adds the warm stylesheet on top of the
+     * framework's own. Anything else — including nothing — leaves the default
+     * untouched, which is why this adds a sheet rather than replacing one.
+     *
+     * <p>It goes on the overlay, not on the Scene: sui-fx.css is loaded by
+     * {@link SuiFxOverlay} into its own stylesheet list, and a Parent's sheets
+     * take precedence over the Scene's — a theme on the Scene would lose every
+     * conflict. Next to the base sheet, later wins.
+     */
+    private void applyTheme() {
+        String theme = System.getProperty("launcher.theme",
+                System.getenv().getOrDefault("MC_LAUNCHER_THEME", "default"));
+        if (!"clody".equalsIgnoreCase(theme)) return;
+        var sheet = getClass().getResource("/clody-fx/clody-fx.css");
+        if (sheet == null) return;
+        overlay.getStylesheets().add(sheet.toExternalForm());
     }
 
     /** Test hook: -Dlauncher.screenshot=/path.png renders, snapshots and exits. */
