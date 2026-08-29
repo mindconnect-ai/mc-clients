@@ -34,6 +34,19 @@ evergreen download and installation instructions in
   installed.
 - Snapshots arrive as a single executable jar, so installing one no longer
   needs a local Maven to resolve a few hundred dependency files.
+- **The chat answers approval requests.** When a tool needs a human, the
+  transcript shows a card with the call and its arguments and three ways out:
+  deny, allow once, allow for the rest of the conversation. Questions raised
+  while no window was open are loaded when the conversation is opened, so a
+  restart no longer strands a waiting agent.
+- **The chat reattaches to a running answer.** Opening a conversation that is
+  being answered right now — by a window that was closed, or a second client —
+  follows that turn to its end instead of showing a transcript that stops
+  mid-thought.
+
+  Both need a server that has the endpoints, which means a snapshot build or
+  anything after 0.0.2. Against an older server the chat notices they are
+  missing and carries on without them.
 
 ### Changed
 

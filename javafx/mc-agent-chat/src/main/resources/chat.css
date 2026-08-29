@@ -35,6 +35,31 @@
     -fx-padding: 0 0 0 6;
 }
 
+/* An approval card interrupts the transcript on purpose: the turn stops here
+   until someone decides, so it is the one thing in the thread that must not
+   read like another quiet line. */
+.approval-card {
+    -fx-background-color: #2A2440;
+    -fx-border-color: #6D5DD3;
+    -fx-border-width: 1;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 10;
+}
+
+.approval-title .label, .approval-title {
+    -fx-text-fill: #D9D2FF;
+    -fx-font-size: 13px;
+    -fx-font-weight: bold;
+}
+
+.approval-args .label, .approval-args {
+    -fx-text-fill: #9AA4C0;
+    -fx-font-family: "Menlo", "Consolas", monospace;
+    -fx-font-size: 11px;
+    -fx-wrap-text: true;
+}
+
 .turn-status .label, .turn-status {
     -fx-text-fill: #64748B;
     -fx-font-style: italic;

@@ -66,6 +66,11 @@ public class ChatApp extends Application {
     private volatile boolean sessionsOpen = true;
     private volatile boolean serverOpen = true;
     private final AtomicBoolean turnRunning = new AtomicBoolean();
+
+    /** callId -> the transcript row showing its card, so answering can replace it. */
+    private final java.util.Map<String, String> approvalRows = new java.util.concurrent.ConcurrentHashMap<>();
+    /** Set while a watcher thread is following someone else's turn on the session stream. */
+    private final AtomicBoolean watching = new AtomicBoolean();
     private final AtomicInteger nodeIds = new AtomicInteger();
 
     @Override
@@ -281,6 +286,29 @@ public class ChatApp extends Application {
         return status;
     }
 
+    /**
+     * The card for one parked tool call. The call id rides in the action ids
+     * rather than in a payload, so all cards share one handler instead of each
+     * registering its own and leaving it behind.
+     */
+    private UiNode approvalCard(String rowId, String callId, String toolName, String argsJson) {
+        var title = UiText.of("⏸ " + toolName + " needs your approval").withCssClass("approval-title");
+        var args = UiText.of(argsJson == null || argsJson.isBlank() ? "(no arguments)" : argsJson)
+                .withCssClass("approval-args");
+        var buttons = UiStack.of(
+                        UiAction.danger("approval:deny:" + callId, "Deny")
+                                .onClick(UiTrigger.invoke("answerApproval")),
+                        UiAction.secondary("approval:once:" + callId, "Allow once")
+                                .onClick(UiTrigger.invoke("answerApproval")),
+                        UiAction.primary("approval:session:" + callId, "Allow for this session")
+                                .onClick(UiTrigger.invoke("answerApproval")))
+                .direction(UiStack.Direction.HORIZONTAL)
+                .gap(8);
+        var card = UiStack.of(title, args, buttons).withCssClass("approval-card");
+        card.setId(rowId);
+        return card;
+    }
+
     private UiForm chatForm() {
         return UiForm.of("chat-form", null)
                 .content(UiField.textarea("message", null, "").asEditable()
@@ -367,14 +395,57 @@ public class ChatApp extends Application {
                         }
                     }
                 }
+                // Questions raised while no client was listening: the event is
+                // long gone, the card has to come from the open list.
+                approvalRows.clear();
+                for (ApiClient.Approval open : openApprovalsQuietly(sessionId)) {
+                    String id = nextId("appr");
+                    approvalRows.put(open.callId(), id);
+                    entries.add(approvalCard(id, open.callId(), open.toolName(), open.argsJson()));
+                }
                 currentSessionId = sessionId;
                 showingServer = false;
                 bus.applyPatch(UiPatch.of()
                         .patch(UiPatch.Operation.replace("main", chatView(entries))));
                 patchMenuIfChanged();
+                // If the conversation is answering right now — started by a
+                // window that is gone — follow it instead of showing a
+                // transcript that stops mid-thought.
+                if (!turnRunning.get()) watchSession(sessionId);
             } catch (Exception e) {
                 bus.toast(UiToast.error(String.valueOf(e.getMessage()))
                         .title("Cannot load conversation"));
+            }
+        });
+
+        // One handler for every card: the verdict and the call id come out of
+        // the clicked action's own id.
+        bus.registerClientHandler("answerApproval", ctx -> {
+            if (ctx.source() == null || ctx.source().getId() == null) return;
+            String[] parts = ctx.source().getId().split(":", 3);
+            if (parts.length < 3 || !"approval".equals(parts[0])) return;
+            String verdict = parts[1];
+            String callId = parts[2];
+            String sessionId = currentSessionId;
+            if (sessionId == null) return;
+            String row = approvalRows.remove(callId);
+            try {
+                api().answerApproval(sessionId, callId,
+                        !"deny".equals(verdict), "session".equals(verdict) ? "session" : "once");
+                if (row != null) {
+                    replaceRow(row, toolLine(row, switch (verdict) {
+                        case "deny" -> "✗ denied";
+                        case "session" -> "✓ allowed for this session";
+                        default -> "✓ allowed once";
+                    }));
+                }
+                // The turn never ended; it continues on the stream it started
+                // on. If that is not this window's stream — the client was
+                // restarted meanwhile — follow the session instead.
+                if (!turnRunning.get()) watchSession(sessionId);
+            } catch (Exception e) {
+                if (row != null) replaceRow(row, toolLine(row, "✗ " + e.getMessage()));
+                bus.toast(UiToast.error(String.valueOf(e.getMessage())).title("Approval"));
             }
         });
 
@@ -491,6 +562,12 @@ public class ChatApp extends Application {
                                 replaceRow(row[0], toolLine(row[0], mark + f.toolName() + duration));
                             }
                         }
+                        case "approval_requested" -> {
+                            // The server puts the call id in the generic text field.
+                            String id = nextId("appr");
+                            approvalRows.put(f.text(), id);
+                            appendRow(approvalCard(id, f.text(), f.toolName(), f.argsJson()));
+                        }
                         case "sub_agent_started" -> {
                             String id = nextId("sub");
                             openRows.push(new String[]{id, "sub:" + f.agentName()});
@@ -549,6 +626,98 @@ public class ChatApp extends Application {
             }
         }
         return null;
+    }
+
+    /**
+     * The open approval questions, or none. A server from before the endpoint
+     * existed answers 404 here — that is a fact about the server, not
+     * something to put in the user's way.
+     */
+    private List<ApiClient.Approval> openApprovalsQuietly(String sessionId) {
+        try {
+            return api().openApprovals(sessionId);
+        } catch (Exception noneToBeHad) {
+            return List.of();
+        }
+    }
+
+    /**
+     * Attaches to a session that is answering right now, and paints the rest
+     * of that turn as it arrives. This is the reconnect case: the turn was
+     * started by a window that is gone (a restart, a second client), so there
+     * is no chat stream of ours to read.
+     *
+     * <p>Only the live turn is painted, filtered by the turn id from the
+     * attached frame — the session's buffer also holds earlier turns, and
+     * those are already in the history we just loaded. The server closes the
+     * stream after its emitter timeout, so this reattaches with the last seq
+     * until the turn is done.
+     */
+    private void watchSession(String sessionId) {
+        if (!watching.compareAndSet(false, true)) return;
+        Thread watcher = new Thread(() -> {
+            StringBuilder answer = new StringBuilder();
+            String bubbleId = nextId("msg");
+            boolean[] shown = {false};
+            long[] cursor = {0};
+            String[] liveTurn = {null};
+            boolean[] finished = {false};
+            try {
+                while (!finished[0] && sessionId.equals(currentSessionId)) {
+                    boolean supported = api().attach(sessionId, cursor[0],
+                            attached -> {
+                                liveTurn[0] = attached.liveTurnId();
+                                if (attached.liveTurnId() == null) finished[0] = true;
+                            },
+                            sf -> {
+                                cursor[0] = sf.seq();
+                                if (liveTurn[0] == null || !liveTurn[0].equals(sf.turnId())) return;
+                                ApiClient.Frame f = sf.event();
+                                switch (f.type()) {
+                                    case "token" -> {
+                                        if (f.text() != null) answer.append(f.text());
+                                        if (!shown[0]) {
+                                            shown[0] = true;
+                                            appendRow(bubble(bubbleId, agentName(), answer.toString(), false));
+                                        } else {
+                                            paintBot(bubbleId, answer.toString());
+                                        }
+                                    }
+                                    case "tool_call_started" ->
+                                            appendRow(toolLine(nextId("tool"), "⚙ " + f.toolName() + " …"));
+                                    case "approval_requested" -> {
+                                        String id = nextId("appr");
+                                        approvalRows.put(f.text(), id);
+                                        appendRow(approvalCard(id, f.text(), f.toolName(), f.argsJson()));
+                                    }
+                                    case "done", "error" -> {
+                                        String finalText = f.finalText() != null && !f.finalText().isBlank()
+                                                ? f.finalText() : answer.toString();
+                                        if (!shown[0] && !finalText.isBlank()) {
+                                            appendRow(bubble(bubbleId, agentName(), finalText, false));
+                                        } else if (shown[0]) {
+                                            paintBot(bubbleId, finalText);
+                                        }
+                                        finished[0] = true;
+                                    }
+                                    default -> { }
+                                }
+                            });
+                    if (!supported) {
+                        // A server from before the session stream. Nothing to
+                        // do about it here, and nothing else is broken by it.
+                        break;
+                    }
+                }
+            } catch (Exception e) {
+                bus.toast(UiToast.info("Lost the connection to the running answer — "
+                        + "reopen the conversation to see how it ended."));
+            } finally {
+                watching.set(false);
+            }
+        }, "session-watch");
+        watcher.setDaemon(true);
+        watcher.start();
     }
 
     private void appendRow(UiNode node) {

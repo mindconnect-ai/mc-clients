@@ -18,8 +18,14 @@ import java.util.function.Consumer;
 
 /**
  * The slice of the server's REST API ({@code /api/**}) an end-user chat
- * needs: agents, sessions, history, and the SSE chat stream. Message bodies
- * and frames are the wire JSON, mapped to small records here.
+ * needs: agents, sessions, history, the SSE chat stream, the approval
+ * questions a parked tool is waiting on, and the session stream to reattach
+ * to a turn that is already running. Message bodies and frames are the wire
+ * JSON, mapped to small records here.
+ *
+ * <p>The last two arrived with the snapshot builds; against an older server
+ * {@link #attach} reports that it is not there and the chat carries on
+ * without reattaching.
  */
 public final class ApiClient {
 
@@ -33,9 +39,30 @@ public final class ApiClient {
     public record HistoryEntry(String senderType, String type, String content,
                                List<String> toolNames) {}
 
-    /** One SSE frame of a running turn — only the fields the chat shows. */
+    /**
+     * One SSE frame of a running turn — only the fields the chat shows.
+     *
+     * <p>On an {@code approval_requested} frame the server puts the call id in
+     * {@code text}: the frame record has no component of its own for it, and
+     * the id is what answering the question needs.
+     */
     public record Frame(String type, String text, String toolName, String agentName,
-                        String finalText, String error, Long durationMs, Frame inner) {}
+                        String finalText, String error, Long durationMs,
+                        String argsJson, Frame inner) {}
+
+    /** An open approval question: a tool call parked until a human decides. */
+    public record Approval(String callId, String toolName, String argsJson) {}
+
+    /**
+     * The first frame of a session stream. {@code liveTurnId} is null when the
+     * session is idle; a {@code firstBufferedSeq} beyond the requested
+     * {@code afterSeq + 1} means events were evicted before we came back.
+     */
+    public record Attached(long firstBufferedSeq, long latestSeq,
+                           String liveTurnId, Integer liveRun) {}
+
+    /** One event of a session stream, with the cursor and the turn it belongs to. */
+    public record StreamFrame(long seq, String turnId, int run, Frame event) {}
 
     private static final String NAMESPACE = "local";
 
@@ -154,7 +181,100 @@ public final class ApiClient {
                 frame.path("finalText").isNull() ? null : frame.path("finalText").asText(),
                 frame.path("error").isNull() ? null : frame.path("error").asText(),
                 frame.path("durationMs").isNumber() ? frame.path("durationMs").asLong() : null,
+                frame.path("arguments").isObject() ? frame.path("arguments").toPrettyString() : null,
                 frame.path("inner").isObject() ? parseFrame(frame.path("inner")) : null);
+    }
+
+    // ── Approvals ───────────────────────────────────────────────────────────
+
+    /**
+     * The questions this conversation is still waiting on. The stream
+     * announces one only in the moment it is raised, so a client that connects
+     * later — or restarts — rebuilds its cards from here.
+     */
+    public List<Approval> openApprovals(String sessionId) throws IOException, InterruptedException {
+        List<Approval> open = new ArrayList<>();
+        for (JsonNode a : getJson("/api/sessions/" + sessionId + "/approvals")) {
+            // The store keeps the raw call message; the card wants its two parts.
+            JsonNode call = mapper.readTree(a.path("content").asText("{}"));
+            open.add(new Approval(
+                    a.path("callId").asText(),
+                    a.path("toolName").asText(call.path("name").asText("?")),
+                    call.path("arguments").isMissingNode() ? null
+                            : call.path("arguments").toPrettyString()));
+        }
+        return open;
+    }
+
+    /**
+     * Delivers the human's decision. {@code scope} is {@code once} or
+     * {@code session}. A 404 means the card was stale — its task is gone — so
+     * it is reported as such rather than as a failure to answer.
+     */
+    public void answerApproval(String sessionId, String callId, boolean approved, String scope)
+            throws IOException, InterruptedException {
+        String path = "/api/sessions/" + sessionId + "/approvals/"
+                + URLEncoder.encode(callId, StandardCharsets.UTF_8)
+                + "?approved=" + approved + "&scope=" + scope;
+        HttpResponse<String> response = http.send(
+                HttpRequest.newBuilder(URI.create(base + path))
+                        .POST(HttpRequest.BodyPublishers.noBody()).build(),
+                HttpResponse.BodyHandlers.ofString());
+        if (response.statusCode() == 404) {
+            throw new IOException("This request is no longer open — the agent has moved on.");
+        }
+        expect2xx(response, "approval answer");
+    }
+
+    // ── Reattaching to a session ────────────────────────────────────────────
+
+    /**
+     * Attaches to the session's event stream and blocks until it ends,
+     * delivering the opening {@link Attached} frame and then every event after
+     * {@code afterSeq}. Call it from a background thread.
+     *
+     * @return false when the server does not know this endpoint — a build from
+     *         before the session stream existed. Everything else still works
+     *         there, so this is a fact to live with, not an error.
+     */
+    public boolean attach(String sessionId, long afterSeq,
+                          Consumer<Attached> onAttached, Consumer<StreamFrame> onFrame)
+            throws IOException, InterruptedException {
+        HttpRequest request = HttpRequest.newBuilder(
+                        URI.create(base + "/api/sessions/" + sessionId + "/stream?afterSeq=" + afterSeq))
+                .header("Accept", "text/event-stream")
+                .build();
+        HttpResponse<java.io.InputStream> response =
+                http.send(request, HttpResponse.BodyHandlers.ofInputStream());
+        if (response.statusCode() == 404) {
+            response.body().close();
+            return false;
+        }
+        if (response.statusCode() / 100 != 2) {
+            throw new IOException("Server answered " + response.statusCode() + " for the session stream");
+        }
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(response.body(), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (!line.startsWith("data:")) continue;
+                JsonNode node = mapper.readTree(line.substring(5).trim());
+                if ("attached".equals(node.path("type").asText())) {
+                    onAttached.accept(new Attached(
+                            node.path("firstBufferedSeq").asLong(),
+                            node.path("latestSeq").asLong(),
+                            node.path("liveTurnId").isNull() ? null : node.path("liveTurnId").asText(),
+                            node.path("liveRun").isNull() ? null : node.path("liveRun").asInt()));
+                    continue;
+                }
+                onFrame.accept(new StreamFrame(
+                        node.path("seq").asLong(),
+                        node.path("turnId").asText(null),
+                        node.path("run").asInt(0),
+                        parseFrame(node.path("event"))));
+            }
+        }
+        return true;
     }
 
     public void cancel(String sessionId) throws IOException, InterruptedException {
