@@ -24,6 +24,13 @@ evergreen download and installation instructions in
 
 ## [Unreleased]
 
+### Changed
+
+- **The clients render on semantic-ui 0.2.0.** The released sheet with the
+  spacing/type scale and row alignment work — ahead of the released parent's
+  0.1.3 pin, via an override that goes away when the next parent release
+  catches up.
+
 ### Added
 
 - **Clody, a warm look for the launcher.** Start it with
