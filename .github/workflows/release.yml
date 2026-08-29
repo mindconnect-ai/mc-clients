@@ -11,7 +11,72 @@ permissions:
   contents: write
 
 jobs:
+  # The release note has two halves: what is new in THIS version, written by
+  # hand in CHANGELOG.md, and the evergreen download and installation
+  # instructions in RELEASE_NOTES.md. They are joined here, once, and handed to
+  # the installer jobs — four jobs assembling it themselves would be four
+  # chances to drift.
+  notes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main          # the tag is what we release; main is what we write back to
+          fetch-depth: 0
+
+      - name: Freeze the changelog into this version
+        id: notes
+        run: |
+          set -euo pipefail
+          ver="${GITHUB_REF_NAME#v}"
+          body=""
+          if grep -q '^## \[Unreleased\]' CHANGELOG.md; then
+            body=$(awk '/^## \[Unreleased\]/{f=1;next} /^## \[/{f=0} f' CHANGELOG.md)
+          fi
+
+          if [ -z "$(echo "$body" | tr -d '[:space:]')" ]; then
+            # Unlike a Maven Central release, the tag already exists by the time
+            # this runs — failing here would mean deleting and re-pushing it.
+            # The release goes out with the evergreen half alone instead.
+            echo "::warning::Nothing under [Unreleased] — releasing without a \"what is new\" section."
+            cp RELEASE_NOTES.md release-notes.md
+            echo "frozen=false" >> "$GITHUB_OUTPUT"
+          else
+            { printf '## What is new in %s\n' "$ver"
+              printf '%s\n\n---\n\n' "$body"
+              cat RELEASE_NOTES.md
+            } > release-notes.md
+            sed -i "s|^## \[Unreleased\]$|## [$ver] - $(date -u +%Y-%m-%d)|" CHANGELOG.md
+            # index(), not a regex match: the heading contains [1.0.1], which as
+            # a pattern is a character class and would never match the line it
+            # came from — silently leaving main with nowhere to write the next
+            # entry.
+            awk -v rel="## [$ver]" '
+              index($0, rel) == 1 && !done { print "## [Unreleased]"; print ""; done = 1 }
+              { print }
+            ' CHANGELOG.md > /tmp/changelog.md && mv /tmp/changelog.md CHANGELOG.md
+            grep -q '^## \[Unreleased\]' CHANGELOG.md \
+              || { echo "::error::failed to reopen [Unreleased]"; exit 1; }
+            echo "frozen=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # So main always has somewhere to write the next entry — the moment it
+      # does not, people stop writing them.
+      - name: Write the frozen changelog back to main
+        if: steps.notes.outputs.frozen == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "docs: freeze the changelog into ${GITHUB_REF_NAME} [skip ci]"
+          git push origin HEAD:main
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: release-notes.md
+
   installers:
+    needs: notes
     strategy:
       matrix:
         include:
@@ -68,10 +133,15 @@ jobs:
           cp mc-agent-admin-launcher-*-all.jar \
              "installer/mindconnect-admin-launcher-${ver}-${{ matrix.suffix }}-all.jar"
 
+      - name: Take the release note the notes job assembled
+        uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+
       - name: Attach to the release
         uses: softprops/action-gh-release@v2
         with:
-          body_path: RELEASE_NOTES.md
+          body_path: release-notes.md
           files: |
             javafx/mc-agent-admin-launcher/target/installer/*.${{ matrix.ext }}
             javafx/mc-agent-admin-launcher/target/installer/*-all.jar
