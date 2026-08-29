@@ -24,7 +24,20 @@ evergreen download and installation instructions in
 
 ## [Unreleased]
 
+### Changed
+
+- **The clients render on semantic-ui 0.2.0.** The released sheet with the
+  spacing/type scale and row alignment work — ahead of the released parent's
+  0.1.3 pin, via an override that goes away when the next parent release
+  catches up.
+
 ### Added
+
+- **Clody, a warm look for the launcher.** Start it with
+  `-Dlauncher.theme=clody` (or `MC_LAUNCHER_THEME=clody`) for bone-and-clay
+  neutrals instead of the default cool-slate scale, at one type size up. It is
+  the desktop half of the theme the admin web UI ships, so the two read as the
+  same product. Without the flag nothing changes.
 
 - **The launcher can install development builds.** Next to the releases from
   Maven Central, the version list now offers the current snapshot from the
@@ -34,6 +47,19 @@ evergreen download and installation instructions in
   installed.
 - Snapshots arrive as a single executable jar, so installing one no longer
   needs a local Maven to resolve a few hundred dependency files.
+- **The chat answers approval requests.** When a tool needs a human, the
+  transcript shows a card with the call and its arguments and three ways out:
+  deny, allow once, allow for the rest of the conversation. Questions raised
+  while no window was open are loaded when the conversation is opened, so a
+  restart no longer strands a waiting agent.
+- **The chat reattaches to a running answer.** Opening a conversation that is
+  being answered right now — by a window that was closed, or a second client —
+  follows that turn to its end instead of showing a transcript that stops
+  mid-thought.
+
+  Both need a server that has the endpoints, which means a snapshot build or
+  anything after 0.0.2. Against an older server the chat notices they are
+  missing and carries on without them.
 
 ### Changed
 

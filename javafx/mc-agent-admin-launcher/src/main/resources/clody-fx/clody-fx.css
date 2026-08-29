@@ -1,0 +1,99 @@
+/*
+ * Clody for JavaFX — the desktop half of the warm theme that the admin web UI
+ * gets from css/clody.css (mindconnect-ai/mindconnect).
+ *
+ * sui-fx.css says how to do this in its own header: "override by adding your
+ * own stylesheet after it, or by redefining the -sui-* looked-up colors on
+ * .root". This file does exactly that, and the split is the point — almost
+ * everything below is a colour, because sui-fx.css is already written in terms
+ * of its own looked-up colors. The handful of rules after the palette exist
+ * only where the base sheet hard-codes something the palette cannot reach.
+ *
+ * Added to the SuiFxOverlay's stylesheet list (not the Scene's) — a Parent's
+ * sheets beat the Scene's, and sui-fx.css lives on the overlay, so a theme has
+ * to sit next to it to win.
+ *
+ * Same three ideas as on the web: warm neutrals, no borrowed depth, one accent.
+ */
+
+.root {
+    /* Surfaces & text — bone, clay, ink. Same values as clody.css. */
+    -sui-bg:             #faf9f6;
+    -sui-surface:        #ffffff;
+    -sui-surface-alt:    #f2efe9;
+    -sui-border:         #e7e2d8;
+    -sui-border-soft:    #f0ece4;
+    -sui-border-strong:  #cfc8ba;
+    -sui-text:           #1c1b18;
+    -sui-text-body:      #35322c;
+    -sui-text-muted:     #6d6960;
+    -sui-text-subtle:    #9b9589;
+
+    /* The one accent. */
+    -sui-primary:        #b0552e;
+    -sui-primary-hover:  #91431e;
+    -sui-primary-soft:   #f6ece5;
+
+    /* Solid actions stay near-black, but warm rather than blue-black. */
+    -sui-action:         #26241f;
+    -sui-action-hover:   #3b3831;
+
+    -sui-danger:         #a3231b;
+    -sui-danger-bg:      #f8e7e3;
+
+    /* 13px is a control size; the desktop client reads better one step up,
+       the same move the web theme makes from 15 to 16. The family is left
+       alone on purpose — see the note in sui-fx.css about JavaFX mapping
+       every SF name onto the logical System font, whose bold is unusable. */
+    -fx-font-size: 14px;
+
+    -fx-background-color: -sui-bg;
+    -fx-focus-color: -sui-primary;
+}
+
+
+/* ── Depth ────────────────────────────────────────────────────────────────
+   The base sheet's two shadows are written as literal cool-slate rgba, which
+   is the one thing the palette cannot reach. Restated warm, and softer. */
+
+.combo-box-popup .list-view {
+    -fx-effect: dropshadow(gaussian, rgba(28, 27, 24, 0.14), 18, 0, 0, 6);
+}
+
+.sui-toast {
+    -fx-effect: dropshadow(gaussian, rgba(28, 27, 24, 0.18), 20, 0, 0, 7);
+}
+
+/* The busy scrim is a literal near-white slate too. */
+.sui-busy-scrim {
+    -fx-background-color: rgba(250, 249, 246, 0.62);
+}
+
+
+/* ── Semantic accents ─────────────────────────────────────────────────────
+   The toast levels carry a stock green and amber that belong to the slate
+   palette. On the warm one they read as imported. */
+
+.sui-toast-success { -fx-border-color: #4f7a43; }
+.sui-toast-warn    { -fx-border-color: #8f6410; }
+
+
+/* ── Tabs and navigation ──────────────────────────────────────────────────
+   The base sheet colours the selected tab's label with the accent. On the web
+   the active tab is ink with an accent rule under it, because a coloured
+   label competes with the accent's real job — marking what you can act on.
+   The selected tab is already a card; its weight is enough. */
+
+.tab-pane .tab:selected .tab-label {
+    -fx-text-fill: -sui-text;
+}
+
+.sui-menu-item-selected {
+    -fx-text-fill: -sui-text;
+}
+
+/* The sidebar is a place you look, not a panel you work in. */
+.sui-menu {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
