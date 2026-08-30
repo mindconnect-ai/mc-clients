@@ -85,7 +85,10 @@ jobs:
             suffix: mac-aarch64
             ext: dmg
             icon: icon.icns
-          - os: macos-13            # Intel Mac
+          # macos-13 was retired by GitHub in December 2025 — its jobs queue
+          # forever. macos-15-intel is the x64 label until Intel macOS support
+          # ends entirely (Fall 2027).
+          - os: macos-15-intel      # Intel Mac
             type: DMG
             suffix: mac-x64
             ext: dmg
