@@ -24,6 +24,8 @@ evergreen download and installation instructions in
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-30
+
 ### Changed
 
 - **The clients render on semantic-ui 0.2.0.** The released sheet with the
