@@ -24,6 +24,8 @@ evergreen download and installation instructions in
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-03
+
 ### Added
 
 - **The launcher lists every branch's snapshot channel.** The server now
