@@ -1,5 +1,6 @@
 package ai.mindconnect.agent.adminlauncher;
 
+import ai.mindconnect.agent.connector.ConnectorConfig;
 import ai.mindconnect.agent.servercontrol.ServerReleases;
 import ai.mindconnect.agent.servercontrol.ServerHome;
 import ai.mindconnect.agent.servercontrol.ServerProcess;
@@ -40,12 +41,18 @@ public class LauncherApp extends Application {
     private final SuiFxEventBus bus = new SuiFxEventBus(renderer);
 
     private ServerControlPanel panel;
+    /** The Remote tab's panel; null unless the tab was switched on. */
+    private ConnectorPanel connectorPanel;
 
     @Override
     public void start(Stage stage) {
         panel = new ServerControlPanel(bus, home, repository, server,
                 url -> getHostServices().showDocument(url));
         panel.installHandlers();
+        if (remoteEnabled()) {
+            connectorPanel = new ConnectorPanel(bus, ConnectorConfig.defaultFile(), panel::port);
+            connectorPanel.installHandlers();
+        }
         renderer.mount(ui());
 
         stage.setTitle("MindConnect Admin Launcher");
@@ -56,22 +63,42 @@ public class LauncherApp extends Application {
 
         panel.startPolling(null);
         panel.refreshVersionsInBackground();
+        if (connectorPanel != null) connectorPanel.startPolling();
         maybeTakeScreenshotAndExit(stage);
     }
 
     @Override
     public void stop() throws Exception {
         // Only a server this window started dies with it; an adopted one
-        // keeps running — it was there before us.
+        // keeps running — it was there before us. The connector runs
+        // in-process, so it goes down with the launcher.
+        if (connectorPanel != null) connectorPanel.stopIfRunning();
         panel.stopOwnServer();
     }
 
+    /**
+     * The Remote tab — the mobile relay's home end — is opt-in: it needs a
+     * Firebase project of your own, so most launchers have no use for it.
+     * Switch it on with {@code --remote} on the command line,
+     * {@code -Dlauncher.remote=true}, or {@code MC_LAUNCHER_REMOTE=true}.
+     */
+    private boolean remoteEnabled() {
+        var params = getParameters();
+        if (params.getUnnamed().contains("--remote")) return true;
+        String named = params.getNamed().get("remote");
+        if (named != null) return !named.equalsIgnoreCase("false");
+        String flag = System.getProperty("launcher.remote",
+                System.getenv().getOrDefault("MC_LAUNCHER_REMOTE", "false"));
+        return flag.isBlank() || Boolean.parseBoolean(flag);
+    }
+
     private UiNode ui() {
-        return UiSection.of("main", null)
+        var main = UiSection.of("main", null)
                 .section("server", "Server", panel.serverPanel())
                 .section("versions", "Versions", panel.versionsPanel())
-                .section("environment", "Environment", panel.environmentPanel())
-                .section("about", "About", aboutPanel())
+                .section("environment", "Environment", panel.environmentPanel());
+        if (connectorPanel != null) main.section("remote", "Remote", connectorPanel.panel());
+        return main.section("about", "About", aboutPanel())
                 // -Dlauncher.section=environment opens elsewhere; the
                 // screenshot hook below can only capture what is on screen.
                 .initialSection(System.getProperty("launcher.section", "server"));

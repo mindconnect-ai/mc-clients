@@ -29,6 +29,7 @@
     <modules>
         <module>mc-server-control</module>
         <module>mc-server-control-fx</module>
+        <module>mc-agent-remote-connector</module>
         <module>mc-agent-admin-launcher</module>
         <module>mc-agent-chat</module>
     </modules>

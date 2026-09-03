@@ -36,6 +36,11 @@ evergreen download and installation instructions in
 - **Kill next to Stop.** Stop still asks the server to shut down cleanly and
   waits up to 15 seconds before forcing it. Kill sits beside it, armed once
   Stop is under way, and ends the server right away.
+- **A Remote tab, switched off by default.** The home end of the mobile relay:
+  configure the Firebase connector, start and stop it, watch its log — it runs
+  inside the launcher for as long as the window is open. It needs a Firebase
+  project of your own, so it only appears when asked for: start the launcher
+  with `--remote`, `-Dlauncher.remote=true` or `MC_LAUNCHER_REMOTE=true`.
 - **Persistence settings in the Environment tab.** `MC_PERSISTENCE` as a choice
   between `file` and `postgres`, plus the postgres connection — URL, user,
   password — as named fields instead of lines in "Additional variables".

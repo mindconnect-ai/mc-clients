@@ -23,6 +23,11 @@
         </dependency>
         <dependency>
             <groupId>ai.mindconnect</groupId>
+            <artifactId>mc-agent-remote-connector</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ai.mindconnect</groupId>
             <artifactId>mc-semantic-ui-javafx</artifactId>
             <version>${semantic-ui.version}</version>
         </dependency>
