@@ -88,7 +88,12 @@ public final class ServerProcess {
         gobbler.start();
     }
 
-    public synchronized void stop() throws InterruptedException {
+    /**
+     * The normal stop: SIGTERM, and SIGKILL after 15 seconds if the clean
+     * shutdown does not finish. Deliberately not synchronized while waiting,
+     * so {@link #kill()} can cut the wait short from another thread.
+     */
+    public void stop() throws InterruptedException {
         Process p = process;
         if (p == null) return;
         p.destroy();
@@ -96,6 +101,25 @@ public final class ServerProcess {
             p.destroyForcibly();
             p.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
         }
+        finish(p);
+    }
+
+    /**
+     * The impatient stop: SIGKILL right away, no clean shutdown. A
+     * {@link #stop()} still waiting on the same process sees it exit and
+     * returns.
+     */
+    public void kill() throws InterruptedException {
+        Process p = process;
+        if (p == null) return;
+        p.destroyForcibly();
+        p.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
+        finish(p);
+    }
+
+    /** Bookkeeping after an exit — once, whichever of stop and kill gets there first. */
+    private synchronized void finish(Process p) {
+        if (process != p) return;
         process = null;
         deletePidFile(home);
     }
@@ -121,6 +145,12 @@ public final class ServerProcess {
                 handle.destroyForcibly();
                 waitForExit(5);
             }
+        }
+
+        /** SIGKILL right away; a waiting {@link #stop()} sees the exit and returns. */
+        public void kill() throws InterruptedException {
+            handle.destroyForcibly();
+            waitForExit(5);
         }
 
         private boolean waitForExit(int seconds) throws InterruptedException {

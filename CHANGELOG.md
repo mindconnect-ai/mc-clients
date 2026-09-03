@@ -24,6 +24,29 @@ evergreen download and installation instructions in
 
 ## [Unreleased]
 
+### Added
+
+- **The launcher lists every branch's snapshot channel.** The server now
+  publishes one pre-release per branch — `snapshot` for main, `snapshot-<branch>`
+  for the rest — and the version list shows them all: main's first, then the
+  branches newest build first, each with its branch, commit and build time.
+  A branch build is for trying a fix before it is merged; it never becomes the
+  version Start picks on its own. When GitHub's API cannot be asked, the list
+  falls back to main's channel, as before.
+- **Kill next to Stop.** Stop still asks the server to shut down cleanly and
+  waits up to 15 seconds before forcing it. Kill sits beside it, armed once
+  Stop is under way, and ends the server right away.
+- **Persistence settings in the Environment tab.** `MC_PERSISTENCE` as a choice
+  between `file` and `postgres`, plus the postgres connection — URL, user,
+  password — as named fields instead of lines in "Additional variables".
+
+### Changed
+
+- Start and Stop no longer hold the window behind a spinner. A first Start
+  downloads the build in the background while the status line and the log
+  show what is happening; Stop waits in the background too, which is what
+  makes room for Kill.
+
 ## [1.1.0] - 2026-08-30
 
 ### Changed

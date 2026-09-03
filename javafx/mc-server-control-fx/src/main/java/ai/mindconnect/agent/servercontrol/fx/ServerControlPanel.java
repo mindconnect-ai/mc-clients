@@ -36,6 +36,12 @@ import java.util.stream.Collectors;
  */
 public final class ServerControlPanel {
 
+    /** What a postgres connection typically looks like — shown as placeholders, never saved. */
+    private static final Map<String, String> POSTGRES_PLACEHOLDERS = Map.of(
+            "MC_POSTGRES_URL", "jdbc:postgresql://localhost:5433/postgres",
+            "MC_POSTGRES_USER", "postgres",
+            "MC_POSTGRES_PASSWORD", "only with postgres");
+
     private final ServerHome home;
     private final ServerReleases releases;
     private final ServerProcess server;
@@ -43,6 +49,10 @@ public final class ServerControlPanel {
     private final Consumer<String> linkOpener;
 
     private volatile ServerProcess.AdoptedServer adopted;
+    /** The version Start is preparing (download, then launch); null when it is not. */
+    private volatile String starting;
+    /** True while Stop waits for the clean shutdown — the window in which Kill is offered. */
+    private volatile boolean stopping;
     private volatile List<ServerReleases.ServerRelease> catalog = List.of();
     private volatile String lastStatus = "";
     private volatile String lastLog = "";
@@ -105,8 +115,9 @@ public final class ServerControlPanel {
 
     public UiNode versionsPanel() {
         return UiStack.of(
-                UiText.of("Releases from Maven Central, plus the current development build "
-                        + "from the snapshot channel. Download one, then activate it — the "
+                UiText.of("Releases from Maven Central, plus the development builds "
+                        + "from the snapshot channels — main's first, then one per branch "
+                        + "that has a build out. Download one, then activate it — the "
                         + "active version is what Start launches. A snapshot keeps its "
                         + "version while the build behind it moves on, so Download fetches "
                         + "it again."),
@@ -117,6 +128,8 @@ public final class ServerControlPanel {
         Map<String, String> env = home.loadEnv();
         String extra = env.entrySet().stream()
                 .filter(e -> !ServerHome.PROVIDER_KEYS.contains(e.getKey()))
+                .filter(e -> !ServerHome.POSTGRES_KEYS.contains(e.getKey()))
+                .filter(e -> !e.getKey().equals(ServerHome.PERSISTENCE))
                 .filter(e -> !e.getKey().equals(ServerHome.ENCRYPTION_KEY))
                 .filter(e -> !e.getKey().equals(ServerHome.ACTIVE_VERSION))
                 .filter(e -> !e.getKey().equals(ServerHome.SERVER_PORT))
@@ -128,6 +141,16 @@ public final class ServerControlPanel {
         for (String key : ServerHome.PROVIDER_KEYS) {
             form.field(UiField.text(key, key, env.getOrDefault(key, ""))
                     .asEditable().placeholder("optional"));
+        }
+        form.field(UiField.select(ServerHome.PERSISTENCE, "Persistence",
+                        env.getOrDefault(ServerHome.PERSISTENCE, ServerHome.PERSISTENCE_MODES.get(0)),
+                        ServerHome.PERSISTENCE_MODES.stream()
+                                .map(mode -> UiField.Option.of(mode, mode)).toList())
+                .asEditable()
+                .hint("file keeps the data in the server home; postgres uses the connection below."));
+        for (String key : ServerHome.POSTGRES_KEYS) {
+            form.field(UiField.text(key, key, env.getOrDefault(key, ""))
+                    .asEditable().placeholder(POSTGRES_PLACEHOLDERS.getOrDefault(key, "")));
         }
         form.content(UiField.textarea("extra", "Additional variables", extra)
                         .asEditable().hint("One KEY=VALUE per line."))
@@ -145,11 +168,13 @@ public final class ServerControlPanel {
     }
 
     private String statusLine() {
+        if (stopping) return "◐ Stopping — waiting up to 15 s for a clean shutdown …";
         if (server.isRunning()) {
             return server.isReachable()
                     ? "● Running — version " + server.version() + " on port " + server.port()
                     : "◐ Starting — version " + server.version() + " on port " + server.port() + " …";
         }
+        if (starting != null) return "◐ Preparing version " + starting + " …";
         ServerProcess.AdoptedServer a = adopted;
         if (a != null && a.handle().isAlive()) {
             return "● Running — pid " + a.pid() + ", port " + a.port()
@@ -175,12 +200,23 @@ public final class ServerControlPanel {
 
     private UiNode actionsRow() {
         UiStack row;
-        if (isRunning()) {
+        if (isRunning() || stopping) {
+            // Kill is always in sight but only armed once Stop is on its way:
+            // it skips the rest of the clean shutdown, nothing more.
             row = UiStack.of(
                     UiAction.primary("open-ui", "Open Admin UI")
                             .onClick(UiTrigger.invoke("openAdminUi")),
                     UiAction.danger("stop-server", "Stop")
-                            .onClick(UiTrigger.invoke("stopServer")));
+                            .onClick(UiTrigger.invoke("stopServer"))
+                            .enabledIf(!stopping, "Already stopping."),
+                    UiAction.danger("kill-server", "Kill")
+                            .onClick(UiTrigger.invoke("killServer"))
+                            .enabledIf(stopping, "Press Stop first — Kill only cuts a stop short."));
+        } else if (starting != null) {
+            // No Start while one is under way — the status line says so.
+            row = UiStack.of(
+                    UiAction.secondary("show-log", "Show full log")
+                            .onClick(UiTrigger.invoke("showLog")));
         } else {
             row = UiStack.of(
                     UiAction.primary("start-server", "Start")
@@ -219,7 +255,9 @@ public final class ServerControlPanel {
                 String state = release.version().equals(active) ? "active"
                         : releases.isInstalled(release.version()) ? "installed" : "—";
                 // For a snapshot the build matters as much as the version: the
-                // same version can sit on disk while a newer commit is out.
+                // same version can sit on disk while a newer commit is out. The
+                // branch says which channel it is — a branch build is opt-in.
+                if (release.branch() != null) state += " · " + release.branch();
                 if (release.detail() != null) state += " · " + release.detail();
                 table.row(Map.of("version", release.version(), "state", state,
                         "source", release.source() == ServerReleases.Source.SNAPSHOT
@@ -244,6 +282,10 @@ public final class ServerControlPanel {
                 bus.toast(UiToast.info("The server is already running."));
                 return;
             }
+            if (starting != null) {
+                bus.toast(UiToast.info("The server is already being started."));
+                return;
+            }
             Map<String, String> env = home.loadEnv();
             int port = parsePort(ctx.string("port"), env);
             if (ServerProcess.portInUse(port)) {
@@ -259,31 +301,70 @@ public final class ServerControlPanel {
                         .title("Environment"));
             }
             String version = activeVersion(env);
-            try {
-                if (!releases.isInstalled(version)) {
-                    installVersion(releaseFor(version));
-                }
-                env.put(ServerHome.SERVER_PORT, String.valueOf(port));
-                env.put(ServerHome.ACTIVE_VERSION, version);
-                home.saveEnv(env);
-                server.start(version, port, env);
-                bus.toast(UiToast.success("Version " + version + " on port " + port)
-                        .title("Server starting"));
-            } catch (Exception e) {
-                bus.toast(UiToast.error(String.valueOf(e.getMessage())).title("Start failed"));
-            }
+            // From here on it can take a while — a first Start downloads the
+            // build — so the work moves to its own thread and the handler
+            // returns at once. Otherwise the bus would keep the window behind
+            // its spinner the whole time, although status line and log
+            // already show what is happening.
+            starting = version;
             refreshServerPanel();
+            Thread thread = new Thread(() -> {
+                try {
+                    if (!releases.isInstalled(version)) {
+                        installVersion(releaseFor(version));
+                    }
+                    env.put(ServerHome.SERVER_PORT, String.valueOf(port));
+                    env.put(ServerHome.ACTIVE_VERSION, version);
+                    home.saveEnv(env);
+                    server.start(version, port, env);
+                    bus.toast(UiToast.success("Version " + version + " on port " + port)
+                            .title("Server starting"));
+                } catch (Exception e) {
+                    bus.toast(UiToast.error(String.valueOf(e.getMessage())).title("Start failed"));
+                } finally {
+                    starting = null;
+                    refreshServerPanel();
+                }
+            }, "server-start");
+            thread.setDaemon(true);
+            thread.start();
         });
 
         bus.registerClientHandler("stopServer", ctx -> {
+            if (stopping) return;
+            // Same reason as Start: the wait can last 20 s, and the window
+            // must stay usable meanwhile — that is where Kill lives.
+            stopping = true;
+            refreshServerPanel();
+            Thread thread = new Thread(() -> {
+                try {
+                    if (server.isRunning()) {
+                        server.stop();
+                    } else if (adopted != null) {
+                        adopted.stop();
+                        adopted = null;
+                    }
+                    bus.toast(UiToast.success("Server stopped"));
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                } finally {
+                    stopping = false;
+                    refreshServerPanel();
+                }
+            }, "server-stop");
+            thread.setDaemon(true);
+            thread.start();
+        });
+
+        bus.registerClientHandler("killServer", ctx -> {
             try {
                 if (server.isRunning()) {
-                    server.stop();
+                    server.kill();
                 } else if (adopted != null) {
-                    adopted.stop();
+                    adopted.kill();
                     adopted = null;
                 }
-                bus.toast(UiToast.success("Server stopped"));
+                bus.toast(UiToast.info("Server killed — no clean shutdown.").title("Server"));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -330,6 +411,10 @@ public final class ServerControlPanel {
             for (String key : ServerHome.PROVIDER_KEYS) {
                 putIfPresent(env, key, ctx.string(key));
             }
+            putIfPresent(env, ServerHome.PERSISTENCE, ctx.string(ServerHome.PERSISTENCE));
+            for (String key : ServerHome.POSTGRES_KEYS) {
+                putIfPresent(env, key, ctx.string(key));
+            }
             String extra = ctx.string("extra");
             if (extra != null) {
                 Map<String, String> keep = new LinkedHashMap<>();
@@ -337,6 +422,8 @@ public final class ServerControlPanel {
                 keep.put(ServerHome.ACTIVE_VERSION, env.getOrDefault(ServerHome.ACTIVE_VERSION, ""));
                 keep.put(ServerHome.SERVER_PORT, env.getOrDefault(ServerHome.SERVER_PORT, ""));
                 for (String key : ServerHome.PROVIDER_KEYS) keep.put(key, env.getOrDefault(key, ""));
+                keep.put(ServerHome.PERSISTENCE, env.getOrDefault(ServerHome.PERSISTENCE, ""));
+                for (String key : ServerHome.POSTGRES_KEYS) keep.put(key, env.getOrDefault(key, ""));
                 for (String line : extra.split("\n")) {
                     int eq = line.indexOf('=');
                     if (eq > 0) keep.put(line.substring(0, eq).trim(), line.substring(eq + 1).trim());
@@ -373,15 +460,16 @@ public final class ServerControlPanel {
                         "https://repo1.maven.org/maven2/" + ServerReleases.GROUP_PATH + "/"
                                 + ServerReleases.APP + "/" + version + "/"
                                 + ServerReleases.APP + "-" + version + "-exec.jar",
-                        null));
+                        null, null));
     }
 
     /** Exec jar first; Maven classpath resolution as the honest fallback. */
     private void installVersion(ServerReleases.ServerRelease release) throws Exception {
         String version = release.version();
         server.appendLog("Downloading " + version + " from "
-                + (release.source() == ServerReleases.Source.SNAPSHOT
-                        ? "the snapshot channel" : "Maven Central") + " …");
+                + (release.source() != ServerReleases.Source.SNAPSHOT ? "Maven Central"
+                        : release.branch() == null ? "the snapshot channel"
+                        : "the snapshot channel of " + release.branch()) + " …");
         refreshLog();
         boolean gotExec = releases.downloadExecJar(release, percent -> {
             if (percent % 20 == 0) {
@@ -472,8 +560,9 @@ public final class ServerControlPanel {
 
     /**
      * What Start launches when nothing is pinned: the newest RELEASE. The
-     * snapshot heads the catalog but is never the default — a development
-     * build is something you choose, not something you land on.
+     * snapshots head the catalog but are never the default — a development
+     * build, and a branch build all the more, is something you choose, not
+     * something you land on; a stale branch must never turn into "latest".
      */
     private String activeVersion(Map<String, String> env) {
         String pinned = env.get(ServerHome.ACTIVE_VERSION);

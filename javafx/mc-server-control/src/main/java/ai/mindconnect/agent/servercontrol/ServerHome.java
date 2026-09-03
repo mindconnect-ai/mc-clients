@@ -29,6 +29,14 @@ public final class ServerHome {
     public static final List<String> PROVIDER_KEYS = List.of(
             "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY", "TAVILY_API_KEY");
 
+    /** The env key that picks where the server keeps its data. */
+    public static final String PERSISTENCE = "MC_PERSISTENCE";
+    /** The values {@link #PERSISTENCE} accepts; the first is the server's default. */
+    public static final List<String> PERSISTENCE_MODES = List.of("file", "postgres");
+    /** Connection settings the server reads only when persistence is postgres. */
+    public static final List<String> POSTGRES_KEYS = List.of(
+            "MC_POSTGRES_URL", "MC_POSTGRES_USER", "MC_POSTGRES_PASSWORD");
+
     private final Path dir;
 
     public ServerHome() {
