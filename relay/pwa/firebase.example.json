@@ -1,0 +1,20 @@
+{
+  "hosting": [
+    {
+      "site": "<project-id>",
+      "public": "public",
+      "ignore": ["firebase.json", "**/.*"],
+      "headers": [
+        { "source": "**", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+      ]
+    },
+    {
+      "site": "<custom-site-name>",
+      "public": "public",
+      "ignore": ["firebase.json", "**/.*"],
+      "headers": [
+        { "source": "**", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+      ]
+    }
+  ]
+}

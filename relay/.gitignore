@@ -1,0 +1,9 @@
+node_modules/
+connector-state.json
+*.log
+.firebase/
+
+# Your own Firebase project — copy the *.example* neighbours and fill them in.
+pwa/public/firebase-config.js
+pwa/firebase.json
+rtdb/.firebaserc

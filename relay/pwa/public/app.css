@@ -1,0 +1,148 @@
+:root {
+  --bg: #111418;
+  --panel: #1a1f26;
+  --panel-2: #222933;
+  --text: #e8ebef;
+  --muted: #8b94a1;
+  --accent: #4da3ff;
+  --ok: #43c478;
+  --warn: #e2b93b;
+  --danger: #e2604d;
+  --radius: 12px;
+  font-size: 16px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: calc(env(safe-area-inset-top) + 0.6rem) 1rem 0.6rem;
+  background: var(--panel);
+  border-bottom: 1px solid #0006;
+}
+
+header h1 { font-size: 1.05rem; margin: 0; flex: 1; font-weight: 600; }
+
+#back {
+  background: none; border: none; color: var(--accent);
+  font-size: 1.6rem; line-height: 1; padding: 0 0.4rem; cursor: pointer;
+}
+
+#install {
+  background: var(--accent); color: #05233f; border: none; border-radius: 8px;
+  padding: 0.35rem 0.7rem; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+}
+
+.state { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+.state.online { background: var(--ok); }
+.state.server_offline { background: var(--warn); }
+.state.offline, .state.connecting { background: var(--danger); }
+.state.connecting { background: var(--warn); }
+
+main { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+
+.card {
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+}
+
+.card.tappable { cursor: pointer; }
+.card.tappable:active { background: var(--panel-2); }
+.card h3 { margin: 0 0 0.25rem; font-size: 1rem; }
+.card p { margin: 0; color: var(--muted); font-size: 0.85rem; }
+
+label { display: block; color: var(--muted); font-size: 0.8rem; margin: 0.6rem 0 0.2rem; }
+
+input, textarea {
+  width: 100%;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid #0008;
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+button.primary, button.ghost, button.danger {
+  border: none; border-radius: 8px; padding: 0.6rem 1rem;
+  font-size: 0.95rem; cursor: pointer; font-family: inherit;
+}
+button.primary { background: var(--accent); color: #05233f; font-weight: 600; }
+button.ghost { background: var(--panel-2); color: var(--text); }
+button.danger { background: var(--danger); color: #fff; }
+
+.error { color: var(--danger); font-size: 0.85rem; }
+
+/* chat */
+.bubble {
+  max-width: 85%;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius);
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.95rem;
+}
+.bubble.user { background: var(--accent); color: #05233f; align-self: flex-end; }
+.bubble.agent { background: var(--panel); align-self: flex-start; }
+.bubble.tool { background: none; color: var(--muted); font-size: 0.8rem; padding: 0 0.3rem; align-self: flex-start; }
+.bubble.streaming::after { content: '▍'; animation: blink 1s infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Markdown inside agent bubbles */
+.bubble.md > :first-child { margin-top: 0; }
+.bubble.md > :last-child { margin-bottom: 0; }
+.bubble.md p { margin: 0.4rem 0; }
+.bubble.md h3, .bubble.md h4 { margin: 0.5rem 0 0.3rem; font-size: 1rem; }
+.bubble.md ul, .bubble.md ol { margin: 0.4rem 0; padding-left: 1.3rem; }
+.bubble.md li { margin: 0.15rem 0; }
+.bubble.md a { color: var(--accent); }
+.bubble.md code {
+  background: var(--panel-2); padding: 0.05rem 0.3rem; border-radius: 4px;
+  font-size: 0.85em; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.bubble.md pre {
+  background: var(--panel-2); border-radius: 8px; padding: 0.6rem;
+  overflow-x: auto; margin: 0.4rem 0;
+}
+.bubble.md pre code { background: none; padding: 0; font-size: 0.8rem; }
+.bubble.md blockquote {
+  margin: 0.4rem 0; padding-left: 0.7rem; border-left: 3px solid var(--muted);
+  color: var(--muted);
+}
+.bubble.md hr { border: none; border-top: 1px solid #0006; margin: 0.6rem 0; }
+
+.approval {
+  background: var(--panel);
+  border: 1px solid var(--warn);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+}
+.approval h3 { margin: 0 0 0.3rem; font-size: 0.95rem; color: var(--warn); }
+.approval pre {
+  background: var(--panel-2); border-radius: 8px; padding: 0.5rem;
+  font-size: 0.75rem; overflow-x: auto; max-height: 8rem;
+}
+.approval .actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.6rem; }
+
+.composer {
+  display: flex; gap: 0.5rem;
+  padding: 0.6rem 1rem calc(env(safe-area-inset-bottom) + 0.6rem);
+  background: var(--panel);
+  border-top: 1px solid #0006;
+}
+.composer textarea { flex: 1; resize: none; max-height: 6rem; }
+.composer .attach { padding: 0.5rem 0.6rem; font-size: 1.1rem; line-height: 1; align-self: flex-end; }

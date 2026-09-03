@@ -1,0 +1,40 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "pairings": {
+      "$code": {
+        ".read": "auth != null",
+        "claim": {
+          ".write": "auth != null && newData.val() === auth.uid && !data.exists()"
+        }
+      }
+    },
+
+    "tunnels": {
+      "$serverId": {
+        "online": {
+          ".read": "auth != null && root.child('tunnels').child($serverId).child('devices').child(auth.uid).exists()"
+        },
+        "devices": {
+          "$uid": {
+            ".read": "auth != null && auth.uid === $uid"
+          }
+        },
+        "requests": {
+          "$reqId": {
+            ".read": "auth != null && root.child('tunnels').child($serverId).child('devices').child(auth.uid).exists()",
+            ".write": "auth != null && root.child('tunnels').child($serverId).child('devices').child(auth.uid).exists()"
+          }
+        },
+        "responses": {
+          "$reqId": {
+            ".read": "auth != null && root.child('tunnels').child($serverId).child('devices').child(auth.uid).exists()",
+            ".write": "auth != null && root.child('tunnels').child($serverId).child('devices').child(auth.uid).exists() && !newData.exists()"
+          }
+        }
+      }
+    }
+  }
+}

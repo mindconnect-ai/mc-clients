@@ -1,0 +1,13 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "tunnels": {
+      "$serverId": {
+        ".read": "auth != null && auth.token.email_verified === true && (auth.token.email === 'david.beisert@gmail.com' || auth.token.email === 'david.beisert@beisert-btc.de')",
+        ".write": "auth != null && auth.token.email_verified === true && (auth.token.email === 'david.beisert@gmail.com' || auth.token.email === 'david.beisert@beisert-btc.de')"
+      }
+    }
+  }
+}

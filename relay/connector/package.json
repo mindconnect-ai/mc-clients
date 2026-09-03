@@ -1,0 +1,20 @@
+{
+  "name": "mc-agent-remote-connector",
+  "version": "0.1.0",
+  "description": "Runs next to the MindConnect agent server, dials out to the relay, replays tunneled requests against the local API",
+  "type": "module",
+  "main": "connector.js",
+  "scripts": {
+    "start": "node connector.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "optionalDependencies": {
+    "firebase-admin": "^13.0.0",
+    "firebase": "^10.12.2"
+  }
+}

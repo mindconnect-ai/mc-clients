@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111418">
+  <title>MindConnect</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="MindConnect">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <header>
+    <button id="back" hidden aria-label="Zurück">‹</button>
+    <h1 id="title">MindConnect</h1>
+    <button id="install" hidden>Installieren</button>
+    <span id="state" class="state" title="Verbindungsstatus"></span>
+  </header>
+  <main id="app"></main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
