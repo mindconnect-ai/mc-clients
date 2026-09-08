@@ -24,6 +24,8 @@ evergreen download and installation instructions in
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-08
+
 ### Added
 
 - **Amethyst is the launcher's look.** Violet on a dark ground, with the same
