@@ -55,7 +55,7 @@ public class LauncherApp extends Application {
         }
         renderer.mount(ui());
 
-        stage.setTitle("MindConnect Admin Launcher");
+        stage.setTitle("Mindconnect Admin Launcher");
         applyBrandIcon(stage);
         applyTheme();
         stage.setScene(new Scene(overlay, 1000, 720));
@@ -95,11 +95,13 @@ public class LauncherApp extends Application {
     private UiNode ui() {
         var main = UiSection.of("main", null)
                 .section("server", "Server", panel.serverPanel())
-                .section("versions", "Versions", panel.versionsPanel())
+                .section("versions", "Versions",
+                        panel.versionsPanel(System.getProperty("launcher.versions")))
                 .section("environment", "Environment", panel.environmentPanel());
         if (connectorPanel != null) main.section("remote", "Remote", connectorPanel.panel());
         return main.section("about", "About", aboutPanel())
-                // -Dlauncher.section=environment opens elsewhere; the
+                // -Dlauncher.section=environment opens elsewhere, and
+                // -Dlauncher.versions=snapshots picks the Versions sub-tab; the
                 // screenshot hook below can only capture what is on screen.
                 .initialSection(System.getProperty("launcher.section", "server"));
     }
@@ -113,7 +115,7 @@ public class LauncherApp extends Application {
                 UiText.of("The launcher, the chat client, the shell scripts and a manual "
                         + "`java -jar` all share this home directory — settings and downloads "
                         + "made here work there too."),
-                UiLink.external("repo", "https://github.com/mindconnect-ai", "MindConnect on GitHub"));
+                UiLink.external("repo", "https://github.com/mindconnect-ai", "Mindconnect on GitHub"));
     }
 
     /** The brain icon on the window and, where the OS shows one, the dock/taskbar. */
@@ -133,10 +135,13 @@ public class LauncherApp extends Application {
     }
 
     /**
-     * A second look, opt-in: {@code -Dlauncher.theme=clody} (or
-     * {@code MC_LAUNCHER_THEME=clody}) adds the warm stylesheet on top of the
-     * framework's own. Anything else — including nothing — leaves the default
-     * untouched, which is why this adds a sheet rather than replacing one.
+     * The look. Amethyst — violet on a dark ground, what the admin web UI
+     * defaults to — unless {@code -Dlauncher.theme} (or
+     * {@code MC_LAUNCHER_THEME}) says otherwise: {@code clody} for the warm
+     * light one, {@code default} for the framework's own. A theme is a
+     * resource at {@code /<name>-fx/<name>-fx.css}; a name with no such sheet
+     * leaves the framework's look untouched, which is why this adds a sheet
+     * rather than replacing one.
      *
      * <p>It goes on the overlay, not on the Scene: sui-fx.css is loaded by
      * {@link SuiFxOverlay} into its own stylesheet list, and a Parent's sheets
@@ -145,9 +150,10 @@ public class LauncherApp extends Application {
      */
     private void applyTheme() {
         String theme = System.getProperty("launcher.theme",
-                System.getenv().getOrDefault("MC_LAUNCHER_THEME", "default"));
-        if (!"clody".equalsIgnoreCase(theme)) return;
-        var sheet = getClass().getResource("/clody-fx/clody-fx.css");
+                System.getenv().getOrDefault("MC_LAUNCHER_THEME", "amethyst"));
+        String name = theme.toLowerCase(java.util.Locale.ROOT);
+        if (!name.matches("[a-z][a-z0-9-]*")) return;
+        var sheet = getClass().getResource("/" + name + "-fx/" + name + "-fx.css");
         if (sheet == null) return;
         overlay.getStylesheets().add(sheet.toExternalForm());
     }

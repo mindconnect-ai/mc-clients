@@ -7,7 +7,7 @@
     <parent>
         <groupId>ai.mindconnect</groupId>
         <artifactId>mc-clients-javafx</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
+        <version>1.2.0</version>
     </parent>
 
     <artifactId>mc-agent-admin-launcher</artifactId>
@@ -40,9 +40,11 @@
     </dependencies>
 
     <properties>
-        <!-- Installer version, independent of the Maven version: jpackage
-             rejects -SNAPSHOT, and macOS requires the first number to be >= 1. -->
-        <app.version>1.2.0</app.version>
+        <!-- The installer reports the Maven version to the OS. That is why the
+             Maven version is a release version and never a -SNAPSHOT: jpackage
+             rejects -SNAPSHOT, and macOS requires the first number to be >= 1.
+             release.sh sets it, to the version being tagged. -->
+        <app.version>${project.version}</app.version>
         <jpackage.type>APP_IMAGE</jpackage.type>
         <jpackage.icon>${project.basedir}/packaging/icon.icns</jpackage.icon>
     </properties>
@@ -136,8 +138,8 @@
                         <artifactId>jpackage-maven-plugin</artifactId>
                         <version>1.6.5</version>
                         <configuration>
-                            <name>MindConnect Admin Launcher</name>
-                            <vendor>MindConnect</vendor>
+                            <name>Mindconnect Admin Launcher</name>
+                            <vendor>Mindconnect</vendor>
                             <icon>${jpackage.icon}</icon>
                             <appVersion>${app.version}</appVersion>
                             <type>${jpackage.type}</type>

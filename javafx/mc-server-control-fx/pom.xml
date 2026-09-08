@@ -7,7 +7,7 @@
     <parent>
         <groupId>ai.mindconnect</groupId>
         <artifactId>mc-clients-javafx</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
+        <version>1.2.0</version>
     </parent>
 
     <artifactId>mc-server-control-fx</artifactId>

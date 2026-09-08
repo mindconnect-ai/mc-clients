@@ -11,6 +11,9 @@ import ai.mindconnect.ui.model.UiField;
 import ai.mindconnect.ui.model.UiForm;
 import ai.mindconnect.ui.model.UiNode;
 import ai.mindconnect.ui.model.UiPatch;
+import ai.mindconnect.ui.model.UiRow;
+import ai.mindconnect.ui.model.UiSection;
+import ai.mindconnect.ui.model.UiSectionEntry;
 import ai.mindconnect.ui.model.UiStack;
 import ai.mindconnect.ui.model.UiTable;
 import ai.mindconnect.ui.model.UiText;
@@ -53,7 +56,17 @@ public final class ServerControlPanel {
     private volatile String starting;
     /** True while Stop waits for the clean shutdown — the window in which Kill is offered. */
     private volatile boolean stopping;
-    private volatile List<ServerReleases.ServerRelease> catalog = List.of();
+    /** The three version lists; null until loaded, so the tables can say "loading". */
+    private volatile List<ServerReleases.ServerRelease> central;
+    private volatile List<ServerReleases.ServerRelease> snapshots;
+    private volatile List<ServerReleases.ServerRelease> local;
+    /**
+     * The Versions sub-tab in front. The whole block is re-rendered whenever a
+     * list arrives — a nested tab pane keeps the height of its first rendering
+     * otherwise — so the selection has to be remembered across renders.
+     */
+    private volatile String versionsTab = "central";
+    private static final List<String> VERSIONS_TABS = List.of("central", "snapshots", "local");
     private volatile String lastStatus = "";
     private volatile String lastLog = "";
     /** False while the host does not have the panels in the mounted tree. */
@@ -113,15 +126,63 @@ public final class ServerControlPanel {
         return UiStack.of(statusText(), serverForm(), actionsRow(), logText());
     }
 
+    /**
+     * The Versions tab: three sources as tabs of their own. {@code initial}
+     * names the one to open — {@code central}, {@code snapshots} or
+     * {@code local}; null opens Maven Central.
+     */
+    public UiNode versionsPanel(String initial) {
+        if (initial != null && VERSIONS_TABS.contains(initial)) versionsTab = initial;
+        return versionsBlock();
+    }
+
+    private UiNode versionsBlock() {
+        var tabs = UiSection.of("versions", null)
+                .section("central", "Maven Central", centralPanel())
+                .section("snapshots", "Snapshots", snapshotsPanel())
+                .section("local", "Local", localPanel())
+                .initialSection(versionsTab);
+        for (UiSectionEntry entry : tabs.getSections()) {
+            entry.onClick(UiTrigger.invoke("versionsTab:" + entry.getId()));
+        }
+        var block = UiStack.of(tabs);
+        block.setId("versions-block");
+        return block;
+    }
+
     public UiNode versionsPanel() {
+        return versionsPanel(null);
+    }
+
+    public UiNode centralPanel() {
         return UiStack.of(
-                UiText.of("Releases from Maven Central, plus the development builds "
-                        + "from the snapshot channels — main's first, then one per branch "
-                        + "that has a build out. Download one, then activate it — the "
-                        + "active version is what Start launches. A snapshot keeps its "
-                        + "version while the build behind it moves on, so Download fetches "
-                        + "it again."),
-                versionsTable());
+                UiText.of("Released server versions from Maven Central. Download one, then "
+                        + "activate it — the active version is what Start launches. With "
+                        + "nothing activated, Start takes the newest release. Click a row "
+                        + "for what that version changed."),
+                centralTable());
+    }
+
+    public UiNode snapshotsPanel() {
+        return UiStack.of(
+                UiText.of("Development builds from the snapshot channels — main's first, "
+                        + "then one per branch that has a build out; the branch is in the "
+                        + "version, 0.2.2-<branch>-SNAPSHOT, main's being the plain one. A "
+                        + "snapshot keeps its version while the build behind it moves on, so "
+                        + "Download fetches it again. Branch builds are for trying a fix "
+                        + "before it is merged; none of them is ever picked by Start on its own. "
+                        + "Click a row for what the build changes."),
+                snapshotsTable());
+    }
+
+    public UiNode localPanel() {
+        return UiStack.of(
+                UiText.of("Server builds in this machine's Maven repository (~/.m2) — what "
+                        + "mvn install in a server checkout left behind, newest first. "
+                        + "Install copies the executable jar into the launcher's home; a "
+                        + "version that only has the plain jar is resolved with Maven. Click "
+                        + "a row for the changelog the jar carries."),
+                localTable());
     }
 
     public UiNode environmentPanel() {
@@ -236,35 +297,84 @@ public final class ServerControlPanel {
         return text;
     }
 
-    private UiTable versionsTable() {
-        String active = activeVersion(home.loadEnv());
-        var table = UiTable.of("versions-table", "Releases")
+    private UiTable centralTable() {
+        var table = versionTable("central-table", "Releases", "Download")
                 .column(UiColumn.text("version", "Version"))
-                .column(UiColumn.text("state", "State"))
-                .column(UiColumn.text("source", "Source"))
-                .action(UiAction.secondary("refresh-versions", "Refresh")
+                .column(UiColumn.text("state", "State"));
+        fill(table, central, "No releases found on Maven Central.",
+                r -> Map.of("version", r.version(), "state", state(r)));
+        return table;
+    }
+
+    private UiTable snapshotsTable() {
+        var table = versionTable("snapshot-table", "Snapshot channels", "Download")
+                .column(UiColumn.text("version", "Version"))
+                .column(UiColumn.text("build", "Commit · built (UTC)"))
+                .column(UiColumn.text("state", "State"));
+        // The build matters as much as the version: the same version can sit
+        // on disk while a newer commit is out. The branch travels in the row
+        // for the handlers; shown, it would push Activate off the table.
+        fill(table, snapshots, "No snapshot channel reachable.",
+                r -> Map.of("version", r.version(),
+                        "branch", r.branch() == null ? "" : r.branch(),
+                        "build", r.detail() == null ? "" : r.detail(),
+                        "state", state(r)));
+        return table;
+    }
+
+    private UiTable localTable() {
+        var table = versionTable("local-table", "Local Maven repository", "Install")
+                .column(UiColumn.text("version", "Version"))
+                .column(UiColumn.text("build", "Build (UTC)"))
+                .column(UiColumn.text("state", "State"));
+        fill(table, local, "No server build in ~/.m2 — run mvn install in a server checkout.",
+                r -> Map.of("version", r.version(),
+                        "build", r.detail() == null ? "" : r.detail(),
+                        "state", state(r)));
+        return table;
+    }
+
+    /** The frame the three tables share: Refresh, plus install and activate per row. */
+    private static UiTable versionTable(String id, String title, String installLabel) {
+        return UiTable.of(id, title)
+                .action(UiAction.secondary(id + "-refresh", "Refresh")
                         .onClick(UiTrigger.invoke("refreshVersions")))
-                .rowAction(UiAction.secondary("download", "Download")
+                .rowAction(UiAction.secondary("download", installLabel)
                         .onClick(UiTrigger.invoke("downloadVersion")))
                 .rowAction(UiAction.primary("activate", "Activate")
                         .onClick(UiTrigger.invoke("activateVersion")));
-        if (catalog.isEmpty()) {
-            table.row(Map.of("version", "…", "state", "loading", "source", ""));
+    }
+
+    private void fill(UiTable table, List<ServerReleases.ServerRelease> rows, String whenEmpty,
+                      java.util.function.Function<ServerReleases.ServerRelease, Map<String, Object>> cells) {
+        if (rows == null) {
+            table.row(Map.of("version", "…", "state", "loading"));
+        } else if (rows.isEmpty()) {
+            table.row(Map.of("version", "—", "state", whenEmpty));
         } else {
-            for (var release : catalog) {
-                String state = release.version().equals(active) ? "active"
-                        : releases.isInstalled(release.version()) ? "installed" : "—";
-                // For a snapshot the build matters as much as the version: the
-                // same version can sit on disk while a newer commit is out. The
-                // branch says which channel it is — a branch build is opt-in.
-                if (release.branch() != null) state += " · " + release.branch();
-                if (release.detail() != null) state += " · " + release.detail();
-                table.row(Map.of("version", release.version(), "state", state,
-                        "source", release.source() == ServerReleases.Source.SNAPSHOT
-                                ? "snapshot" : "central"));
+            for (var release : rows) {
+                UiRow row = UiRow.of(cells.apply(release));
+                row.setOnClick(UiTrigger.invoke("showChangelog"));
+                table.row(row);
             }
         }
-        return table;
+    }
+
+    private String state(ServerReleases.ServerRelease release) {
+        return release.version().equals(activeVersion(home.loadEnv())) ? "active"
+                : releases.isInstalled(release.version()) ? "installed" : "—";
+    }
+
+    /** All three lists as one, in the order the tabs show them; unloaded ones are skipped. */
+    private List<ServerReleases.ServerRelease> catalog() {
+        List<ServerReleases.ServerRelease> all = new java.util.ArrayList<>();
+        for (var list : List.of(
+                central == null ? List.<ServerReleases.ServerRelease>of() : central,
+                snapshots == null ? List.<ServerReleases.ServerRelease>of() : snapshots,
+                local == null ? List.<ServerReleases.ServerRelease>of() : local)) {
+            all.addAll(list);
+        }
+        return all;
     }
 
     private UiField encryptionKeyField(String value) {
@@ -380,13 +490,25 @@ public final class ServerControlPanel {
                                 : server.tail(200)))));
 
         bus.registerClientHandler("refreshVersions", ctx -> refreshVersionsInBackground());
+        bus.registerClientHandler("showChangelog", ctx -> {
+            String version = ctx.string("version");
+            if (version == null || version.isBlank() || version.equals("…") || version.equals("—")) return;
+            String text = releases.changelog(releaseFor(version)).orElse(
+                    "No changelog to show for " + version + ".\n\n"
+                    + "A jar built since the server packages its CHANGELOG.md carries one; "
+                    + "for older builds the release note on GitHub stands in, and this "
+                    + "version has neither — or the release list could not be fetched.");
+            bus.showDialog(UiDialog.of("Changelog — " + version, null, UiText.of(text)));
+        });
+        for (String tab : VERSIONS_TABS) {
+            bus.registerClientHandler("versionsTab:" + tab, ctx -> versionsTab = tab);
+        }
 
         bus.registerClientHandler("downloadVersion", ctx -> {
             String version = ctx.string("version");
             try {
                 installVersion(releaseFor(version));
-                bus.applyPatch(UiPatch.of()
-                        .patch(UiPatch.Operation.replace("versions-table", versionsTable()))
+                bus.applyPatch(versionTables()
                         .toast(UiToast.success("Version " + version + " is ready.")));
             } catch (Exception e) {
                 bus.toast(UiToast.error(String.valueOf(e.getMessage())).title("Download failed"));
@@ -398,8 +520,7 @@ public final class ServerControlPanel {
             Map<String, String> env = home.loadEnv();
             env.put(ServerHome.ACTIVE_VERSION, version);
             home.saveEnv(env);
-            bus.applyPatch(UiPatch.of()
-                    .patch(UiPatch.Operation.replace("versions-table", versionsTable()))
+            bus.applyPatch(versionTables()
                     .patch(UiPatch.Operation.replace("server-form", serverForm()))
                     .toast(UiToast.success("Start now launches " + version + ".")
                             .title("Active version")));
@@ -452,7 +573,7 @@ public final class ServerControlPanel {
      * assumption, which is what the launcher did before there was a catalog.
      */
     private ServerReleases.ServerRelease releaseFor(String version) {
-        return catalog.stream()
+        return catalog().stream()
                 .filter(r -> r.version().equals(version))
                 .findFirst()
                 .orElseGet(() -> new ServerReleases.ServerRelease(version,
@@ -466,10 +587,14 @@ public final class ServerControlPanel {
     /** Exec jar first; Maven classpath resolution as the honest fallback. */
     private void installVersion(ServerReleases.ServerRelease release) throws Exception {
         String version = release.version();
-        server.appendLog("Downloading " + version + " from "
-                + (release.source() != ServerReleases.Source.SNAPSHOT ? "Maven Central"
-                        : release.branch() == null ? "the snapshot channel"
-                        : "the snapshot channel of " + release.branch()) + " …");
+        server.appendLog((release.source() == ServerReleases.Source.LOCAL ? "Installing "
+                        : "Downloading ") + version + " from "
+                + switch (release.source()) {
+                    case LOCAL -> "the local Maven repository";
+                    case CENTRAL -> "Maven Central";
+                    case SNAPSHOT -> release.branch() == null ? "the snapshot channel"
+                            : "the snapshot channel of " + release.branch();
+                } + " …");
         refreshLog();
         boolean gotExec = releases.downloadExecJar(release, percent -> {
             if (percent % 20 == 0) {
@@ -492,19 +617,47 @@ public final class ServerControlPanel {
 
     // ── background refresh ────────────────────────────────────────────────
 
+    /**
+     * Reloads the three lists, each on its own: the local one is instant and
+     * must not wait for the network, and a failing Central must not empty
+     * the snapshots. Every table is repainted as soon as its list is in.
+     */
     public void refreshVersionsInBackground() {
         Thread thread = new Thread(() -> {
             try {
-                catalog = releases.catalog();
-                bus.applyPatch(UiPatch.of()
-                        .patch(UiPatch.Operation.replace("versions-table", versionsTable())));
+                local = releases.local();
             } catch (Exception e) {
+                local = List.of();
                 bus.toast(UiToast.error(String.valueOf(e.getMessage()))
-                        .title("Release list not reachable"));
+                        .title("Local Maven repository not readable"));
             }
+            patch("local-table", localTable());
+            snapshots = releases.snapshots();
+            patch("snapshot-table", snapshotsTable());
+            try {
+                central = releases.central();
+            } catch (Exception e) {
+                central = List.of();
+                bus.toast(UiToast.error(String.valueOf(e.getMessage()))
+                        .title("Maven Central not reachable"));
+            }
+            // The active marker depends on Central (the newest release is the
+            // default), so the tables painted before it was in are painted
+            // again — as a whole block, which also gives the tab pane its
+            // final height.
+            bus.applyPatch(versionTables());
         }, "versions-refresh");
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private void patch(String id, UiNode node) {
+        bus.applyPatch(UiPatch.of().patch(UiPatch.Operation.replace(id, node)));
+    }
+
+    /** The whole Versions block, for a repaint after install or activation changed a state. */
+    private UiPatch versionTables() {
+        return UiPatch.of().patch(UiPatch.Operation.replace("versions-block", versionsBlock()));
     }
 
     /**
@@ -567,7 +720,7 @@ public final class ServerControlPanel {
     private String activeVersion(Map<String, String> env) {
         String pinned = env.get(ServerHome.ACTIVE_VERSION);
         if (pinned != null && !pinned.isBlank()) return pinned;
-        return catalog.stream()
+        return catalog().stream()
                 .filter(r -> r.source() == ServerReleases.Source.CENTRAL)
                 .map(ServerReleases.ServerRelease::version)
                 .findFirst()

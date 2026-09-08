@@ -1,0 +1,269 @@
+/*
+ * Amethyst for JavaFX — violet on a dark ground, the desktop half of
+ * css/amethyst.css in the admin web UI (mindconnect-ai/mindconnect), where
+ * it is the default theme.
+ *
+ * Same shape as clody-fx.css: added to the SuiFxOverlay's stylesheet list
+ * after sui-fx.css, and mostly a palette, because the base sheet is written
+ * in terms of its own -sui-* looked-up colors. What comes after the palette
+ * is what any dark theme has to say on top of a light base sheet — the
+ * places where sui-fx.css hard-codes a light literal, and the stock JavaFX
+ * controls (scroll bars, popups, tooltips) that sui-fx.css never touches and
+ * that would otherwise stay Modena-light in a dark window.
+ *
+ * Every value is the web theme's own. Where the web has a token this file
+ * has no use for (radii, fonts) it is left out; where the JavaFX base sheet
+ * hard-codes something the web derives (the check mark, the shadows, the
+ * scrim) it is restated here.
+ */
+
+.root, .sui-overlay {
+    /* Every neutral is violet-cast rather than grey — on a dark ground a
+       truly neutral scale next to a saturated accent reads as a mistake. */
+    -sui-bg:             #14101f;
+    -sui-surface:        #1c1730;
+    -sui-surface-alt:    #252041;
+    -sui-border:         #322b4d;
+    -sui-border-soft:    #241f3a;
+    -sui-border-strong:  #4a4270;
+    -sui-text:           #ece9f5;
+    -sui-text-strong:    #ffffff;
+    -sui-text-body:      #d7d2e8;
+    -sui-text-muted:     #a09ab8;
+    -sui-text-subtle:    #7b7496;
+
+    /* The accent, and this time it is the point of the theme. */
+    -sui-primary:        #b39dff;
+    -sui-primary-hover:  #cbbcff;
+    -sui-primary-soft:   #2e2450;
+    -sui-on-primary:     #14101f;
+
+    /* Solid actions are the accent at full strength — the near-black fill
+       the light themes use would disappear into the page. */
+    -sui-action:         #7c5cf5;
+    -sui-action-hover:   #8f73ff;
+
+    /* Status colours lifted for a dark ground: text bright enough to read,
+       fill deep enough to stay a background. */
+    -sui-danger:         #ff8b8b;
+    -sui-danger-bg:      #3b1420;
+    -sui-danger-bg-hover:#4e1a2a;
+    -sui-success:        #7fe0b0;
+    -sui-warning:        #f5c563;
+
+    /* The header is the page, with a hairline under it. */
+    -sui-header-bg:            #14101f;
+    -sui-header-fg:            #d7d2e8;
+    -sui-header-brand-fg:      #ffffff;
+    -sui-header-nav-fg:        #a09ab8;
+    -sui-header-nav-fg-hover:  #ffffff;
+    -sui-header-nav-bg-hover:  #252041;
+
+    /* Modena's own roots, so every control sui-fx.css does not restyle —
+       scroll bars, tooltips, context menus, the date picker's popup — turns
+       dark with the rest instead of arriving from a light theme. Modena
+       derives its whole ladder from these; the text colours flip to light
+       on their own once -fx-background is dark. */
+    -fx-base:                     #1c1730;
+    -fx-background:               #14101f;
+    -fx-control-inner-background: #1c1730;
+    -fx-control-inner-background-alt: #252041;
+    -fx-accent:                   #7c5cf5;
+    -fx-default-button:           #7c5cf5;
+    -fx-selection-bar:            #2e2450;
+    -fx-selection-bar-non-focused:#252041;
+    -fx-outer-border:             #322b4d;
+    -fx-text-box-border:          #4a4270;
+    -fx-mark-color:               #d7d2e8;
+
+    /* Same size as the base sheet: a theme decides how the app looks, not
+       how big its text is. */
+    -fx-background-color: -sui-bg;
+    -fx-text-base-color: -sui-text-body;
+    -fx-focus-color: -sui-primary;
+}
+
+
+/* ── What any dark theme has to say ──────────────────────────────────────
+   The base sheet's literals that the palette cannot reach. */
+
+/* Filled buttons and the avatar say `white` for their text, which is right
+   on the violet action. The check mark says `white` on the accent — and the
+   accent is light here, so the mark takes the ground's colour instead. */
+.check-box:selected .mark {
+    -fx-background-color: -sui-on-primary;
+}
+
+/* Danger's hover is derived darker in the base sheet; on a dark ground
+   "hover" means lighter. */
+.sui-action-danger:hover {
+    -fx-background-color: -sui-danger-bg-hover;
+}
+
+/* The two shadows are cool-slate rgba, which vanishes on this ground; a
+   black one, heavier, is what still reads as depth. */
+.combo-box-popup .list-view {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.55), 20, 0, 0, 8);
+}
+.sui-toast {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.6), 24, 0, 0, 8);
+}
+
+/* The busy scrim is a near-white wash. */
+.sui-busy-scrim {
+    -fx-background-color: rgba(20, 16, 31, 0.62);
+}
+
+/* The stock green and amber of the toast rules and the progress bars are
+   tuned for a light page; these are the web theme's lifted versions. */
+.sui-toast-success { -fx-border-color: -sui-success; }
+.sui-toast-warn    { -fx-border-color: -sui-warning; }
+.sui-progress-success .bar { -fx-background-color: -sui-success; }
+.sui-progress-warning .bar { -fx-background-color: -sui-warning; }
+.progress-bar > .bar {
+    -fx-background-color: -sui-action;
+}
+
+/* The "unsupported node" pill is a literal amber-on-cream. */
+.sui-unsupported {
+    -fx-text-fill: -sui-warning;
+    -fx-background-color: #33240a;
+}
+
+
+/* ── Stock controls sui-fx.css leaves to Modena ───────────────────────────
+   Modena's roots above get most of the way; these are the parts whose
+   shape or contrast Modena computes badly on a dark base. */
+
+.scroll-bar {
+    -fx-background-color: transparent;
+}
+.scroll-bar > .track {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+.scroll-bar > .thumb {
+    -fx-background-color: -sui-border-strong;
+    /* Modena insets the thumb from the track; a single fill without them
+       is a bar as wide as the track, which is what a thumb must not be. */
+    -fx-background-insets: 3;
+    -fx-background-radius: 6;
+}
+.scroll-bar > .thumb:hover {
+    -fx-background-color: -sui-text-subtle;
+}
+.scroll-bar > .increment-button,
+.scroll-bar > .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0 4 0 4;
+}
+.scroll-bar > .increment-button > .increment-arrow,
+.scroll-bar > .decrement-button > .decrement-arrow {
+    -fx-background-color: -sui-text-subtle;
+}
+.corner {
+    -fx-background-color: transparent;
+}
+
+.tooltip {
+    -fx-background-color: -sui-surface-alt;
+    -fx-text-fill: -sui-text;
+    -fx-border-color: -sui-border-strong;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}
+
+.context-menu {
+    -fx-background-color: -sui-surface;
+    -fx-border-color: -sui-border;
+    -fx-background-radius: 8;
+    -fx-border-radius: 8;
+}
+.menu-item:focused {
+    -fx-background-color: -sui-primary-soft;
+}
+.menu-item:focused .label {
+    -fx-text-fill: -sui-primary;
+}
+
+.list-view,
+.list-view .list-cell {
+    -fx-background-color: -sui-surface;
+    -fx-text-fill: -sui-text-body;
+}
+.list-view .list-cell:filled:selected {
+    -fx-background-color: -sui-primary-soft;
+    -fx-text-fill: -sui-primary;
+}
+
+.table-view .placeholder .label {
+    -fx-text-fill: -sui-text-subtle;
+}
+
+.combo-box .arrow,
+.date-picker .arrow {
+    -fx-background-color: -sui-text-muted;
+}
+
+.separator .line {
+    -fx-border-color: -sui-border transparent transparent transparent;
+}
+
+
+/* ── Header & navigation ─────────────────────────────────────────────────
+   The header is the page's own colour with a hairline under it; the avatar
+   is the solid action, as on the web. */
+
+.sui-header {
+    -fx-border-color: transparent transparent -sui-border transparent;
+    -fx-border-width: 0 0 1 0;
+}
+.sui-header-avatar {
+    -fx-background-color: -sui-action;
+}
+
+/* The sidebar is a place you look, not a panel you work in. */
+.sui-menu {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+}
+.sui-menu-item {
+    -fx-background-radius: 10;
+}
+
+
+/* ── Tabs ─────────────────────────────────────────────────────────────────
+   The active tab is the strong text with the accent as the rule, not an
+   accent-coloured label: the label's job is to be read, the rule's to mark. */
+
+.tab-pane .tab:selected .tab-label {
+    -fx-text-fill: -sui-text-strong;
+}
+.tab-pane .tab:selected {
+    -fx-border-color: -sui-border -sui-border -sui-surface -sui-border;
+}
+
+/* Table headings are the surface, not a raised band, on this ground. */
+.table-view .column-header-background {
+    -fx-background-color: -sui-surface;
+}
+.table-view .table-row-cell:hover {
+    -fx-background-color: -sui-surface-alt;
+}
+
+/* Field labels read muted, one notch under the value they name. */
+.sui-field-label {
+    -fx-text-fill: -sui-text-muted;
+}
+.text-field,
+.text-area,
+.combo-box,
+.date-picker,
+.spinner {
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+}
+.button {
+    -fx-background-radius: 10;
+    -fx-border-radius: 10;
+}

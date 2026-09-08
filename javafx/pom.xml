@@ -14,10 +14,10 @@
     </parent>
 
     <artifactId>mc-clients-javafx</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>1.2.0</version>
     <packaging>pom</packaging>
     <name>mc-clients-javafx</name>
-    <description>JavaFX desktop clients for the MindConnect platform (mc-clients/javafx)</description>
+    <description>JavaFX desktop clients for the Mindconnect platform (mc-clients/javafx)</description>
 
     <properties>
         <!-- Ahead of the released parent (0.0.2 pins 0.1.3): the clients

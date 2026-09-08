@@ -7,7 +7,7 @@
     <parent>
         <groupId>ai.mindconnect</groupId>
         <artifactId>mc-clients-javafx</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
+        <version>1.2.0</version>
     </parent>
 
     <artifactId>mc-agent-chat</artifactId>
@@ -16,7 +16,7 @@
     <description>End-user chat client for the agent server — pick an agent, chat, revisit sessions</description>
 
     <properties>
-        <app.version>1.0.0</app.version>
+        <app.version>${project.version}</app.version>
         <jpackage.type>APP_IMAGE</jpackage.type>
     </properties>
 
@@ -117,8 +117,8 @@
                         <artifactId>jpackage-maven-plugin</artifactId>
                         <version>1.6.5</version>
                         <configuration>
-                            <name>MindConnect Chat</name>
-                            <vendor>MindConnect</vendor>
+                            <name>Mindconnect Chat</name>
+                            <vendor>Mindconnect</vendor>
                             <appVersion>${app.version}</appVersion>
                             <type>${jpackage.type}</type>
                             <input>${project.build.directory}/jpackage-input</input>

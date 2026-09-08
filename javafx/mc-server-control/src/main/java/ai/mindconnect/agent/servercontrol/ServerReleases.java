@@ -14,20 +14,28 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Which server builds exist, and how to get one onto disk. Two sources feed
- * the catalog: the releases on Maven Central, and the rolling snapshot
+ * Which server builds exist, and how to get one onto disk. Three sources
+ * feed the catalog: the releases on Maven Central; the rolling snapshot
  * pre-releases on GitHub — one channel per branch, {@code main}'s being the
- * development build proper.
+ * development build proper; and the local Maven repository, where
+ * {@code mvn install} in a server checkout leaves its builds.
  *
  * <p>Preferred delivery either way is the Spring Boot executable jar
  * (classifier {@code exec}). Releases published before that jar existed have
@@ -70,20 +78,39 @@ public final class ServerReleases {
      */
     private static final String DOWNLOADS = "https://github.com/" + GITHUB_REPO + "/releases/download/";
 
+    /**
+     * The local Maven repository — what was built or fetched on this machine.
+     * {@code maven.repo.local} is the property Maven itself honours.
+     */
+    private static final Path LOCAL_REPO = Path.of(System.getProperty("maven.repo.local",
+            Path.of(System.getProperty("user.home"), ".m2", "repository").toString()));
+
+    /**
+     * Where the server jar carries its changelog — the repository's
+     * CHANGELOG.md, packaged as a resource since mindconnect
+     * feature/changelog-in-jar. Spring Boot's repackaging keeps META-INF at
+     * the root, so the plain jar and the exec jar hold it at the same path.
+     */
+    private static final List<String> JAR_CHANGELOG = List.of("META-INF/CHANGELOG.md");
+
+    private static final DateTimeFormatter MINUTE_UTC =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm'Z'").withZone(ZoneOffset.UTC);
     private static final Duration TIMEOUT = Duration.ofSeconds(20);
     private static final Pattern VERSION_TAG = Pattern.compile("<version>([^<]+)</version>");
     private static final Pattern FIELD = Pattern.compile("(?m)^(\\w+):\\s*(.+)$");
     private static final ObjectMapper JSON = new ObjectMapper();
 
     /** Where a build comes from. */
-    public enum Source { CENTRAL, SNAPSHOT }
+    public enum Source { CENTRAL, SNAPSHOT, LOCAL }
 
     /**
      * One installable server build.
      *
      * @param version     the Maven version — also the name of the local jar
-     * @param source      which of the two channels it came from
-     * @param downloadUrl the executable jar, or null when only Maven resolution reaches it
+     * @param source      which of the three sources it came from
+     * @param downloadUrl the executable jar — https for the remote sources, a
+     *                    {@code file:} URI for the local repository — or null
+     *                    when only Maven resolution reaches it
      * @param detail      what to show beside the state — commit and build time for a snapshot
      * @param branch      the branch a snapshot was built from; null for a Central release
      */
@@ -98,12 +125,28 @@ public final class ServerReleases {
         }
 
         ServerRelease toRelease() {
-            String detail = commit == null ? built
-                    : built == null ? commit : commit + " · " + built;
+            String when = shortUtc(built);
+            String detail = commit == null ? when
+                    : when == null ? commit : commit + " · " + when;
             return new ServerRelease(version, Source.SNAPSHOT,
                     DOWNLOADS + tag + "/" + APP + "-" + version + "-exec.jar", detail, branch);
         }
     }
+
+    /**
+     * {@code 2026-09-03T15:12Z} → {@code 09-03 15:12}: the year is noise in a
+     * list of rolling builds, and the table has to fit beside the version.
+     * Anything not in that shape is passed through.
+     */
+    static String shortUtc(String isoMinute) {
+        if (isoMinute == null) return null;
+        return isoMinute.matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}Z?")
+                ? isoMinute.substring(5, 16).replace('T', ' ')
+                : isoMinute;
+    }
+
+    /** Release-note bodies by tag, as the Releases API handed them over — the fallback changelog. */
+    private final Map<String, String> releaseNotes = new ConcurrentHashMap<>();
 
     private final ServerHome home;
     private final HttpClient http = HttpClient.newBuilder()
@@ -116,26 +159,83 @@ public final class ServerReleases {
     }
 
     /**
-     * Everything installable: {@code main}'s snapshot first, then the branch
-     * snapshots newest build first, then the releases newest first. An
-     * unreachable snapshot channel is left out rather than failing the
-     * catalog — Central alone is still a usable list.
+     * Everything installable, snapshots first, then the Central releases, then
+     * the local builds — each group in its own order, see {@link #snapshots()},
+     * {@link #central()} and {@link #local()}.
      */
     public List<ServerRelease> catalog() throws IOException, InterruptedException {
+        List<ServerRelease> catalog = new ArrayList<>(snapshots());
+        catalog.addAll(central());
+        catalog.addAll(local());
+        return catalog;
+    }
+
+    /** The releases on Maven Central, newest first. */
+    public List<ServerRelease> central() throws IOException, InterruptedException {
+        List<ServerRelease> releases = new ArrayList<>();
+        for (String version : centralVersions()) {
+            releases.add(new ServerRelease(version, Source.CENTRAL,
+                    CENTRAL + "/" + version + "/" + APP + "-" + version + "-exec.jar", null, null));
+        }
+        return releases;
+    }
+
+    /**
+     * The snapshot channels: {@code main}'s first, then the branches newest
+     * build first. An unreachable channel is left out rather than thrown —
+     * the list is still usable without it.
+     */
+    public List<ServerRelease> snapshots() {
         List<Snapshot> snapshots = new ArrayList<>();
         for (String tag : snapshotChannels()) {
             readSnapshot(tag).ifPresent(snapshots::add);
         }
         snapshots.sort(Comparator.comparing((Snapshot s) -> !s.isMain())
                 .thenComparing(s -> s.built() == null ? "" : s.built(), Comparator.reverseOrder()));
+        List<ServerRelease> releases = new ArrayList<>();
+        for (Snapshot snapshot : snapshots) releases.add(snapshot.toRelease());
+        return releases;
+    }
 
-        List<ServerRelease> catalog = new ArrayList<>();
-        for (Snapshot snapshot : snapshots) catalog.add(snapshot.toRelease());
-        for (String version : centralVersions()) {
-            catalog.add(new ServerRelease(version, Source.CENTRAL,
-                    CENTRAL + "/" + version + "/" + APP + "-" + version + "-exec.jar", null, null));
+    /** A build in the local Maven repository. */
+    private record LocalBuild(String version, Path jar, boolean exec, Instant built) {
+
+        ServerRelease toRelease() {
+            String detail = (exec ? "exec jar" : "classpath via Maven") + " · "
+                    + shortUtc(MINUTE_UTC.format(built));
+            return new ServerRelease(version, Source.LOCAL,
+                    exec ? jar.toUri().toString() : null, detail, null);
         }
-        return catalog;
+    }
+
+    /**
+     * The server builds in the local Maven repository, newest first — every
+     * version directory holding a jar of the app. The executable jar is
+     * installed by copying it; a version with only the plain jar is
+     * resolved with Maven, which works offline when the dependencies are
+     * there too. A directory with nothing but a pom was never built here and
+     * is skipped.
+     */
+    public List<ServerRelease> local() throws IOException {
+        Path dir = LOCAL_REPO.resolve(GROUP_PATH).resolve(APP);
+        if (!Files.isDirectory(dir)) return List.of();
+        List<LocalBuild> builds = new ArrayList<>();
+        try (var versions = Files.list(dir)) {
+            for (Path versionDir : (Iterable<Path>) versions::iterator) {
+                if (!Files.isDirectory(versionDir)) continue;
+                String version = versionDir.getFileName().toString();
+                Path exec = versionDir.resolve(APP + "-" + version + "-exec.jar");
+                Path plain = versionDir.resolve(APP + "-" + version + ".jar");
+                Path jar = Files.exists(exec) ? exec : Files.exists(plain) ? plain : null;
+                if (jar == null) continue;
+                builds.add(new LocalBuild(version, jar, jar == exec,
+                        Files.getLastModifiedTime(jar).toInstant()));
+            }
+        }
+        builds.sort(Comparator.comparing(LocalBuild::built).reversed());
+        List<ServerRelease> releases = new ArrayList<>();
+        for (LocalBuild build : builds) releases.add(build.toRelease());
+        return releases;
     }
 
     /** All released versions on Central, newest first. */
@@ -174,6 +274,8 @@ public final class ServerReleases {
             List<String> tags = new ArrayList<>();
             for (JsonNode release : JSON.readTree(response.body())) {
                 String tag = release.path("tag_name").asText("");
+                String body = release.path("body").asText("");
+                if (!tag.isBlank() && !body.isBlank()) releaseNotes.put(tag, body);
                 boolean prerelease = release.path("prerelease").asBoolean(false);
                 if (prerelease && (tag.equals(MAIN_SNAPSHOT_TAG)
                         || tag.startsWith(MAIN_SNAPSHOT_TAG + "-"))) {
@@ -242,6 +344,107 @@ public final class ServerReleases {
         }
     }
 
+    /**
+     * What this build changes, for a click on its row. First choice is the
+     * changelog inside the jar — exact for the build, readable offline, and
+     * for a branch build the {@code [Unreleased]} section is the description
+     * of the very fix one installs it to try. Only a jar on disk can be read:
+     * the installed one, or a local-repository one before it is installed.
+     * Without a jar, or with a jar from before the changelog was packaged,
+     * the release note GitHub attached to the tag stands in — the Releases
+     * API delivered those together with the channel list. Empty when
+     * neither exists.
+     */
+    public Optional<String> changelog(ServerRelease release) {
+        for (Path jar : jarsOnDisk(release)) {
+            String text = readEntry(jar, JAR_CHANGELOG);
+            if (text != null) return Optional.of(section(text, release.version()));
+        }
+        String tag = tagFor(release);
+        return Optional.ofNullable(tag == null ? null : releaseNotes.get(tag));
+    }
+
+    private List<Path> jarsOnDisk(ServerRelease release) {
+        List<Path> jars = new ArrayList<>();
+        if (Files.exists(execJar(release.version()))) jars.add(execJar(release.version()));
+        if (release.downloadUrl() != null && release.downloadUrl().startsWith("file:")) {
+            jars.add(Path.of(URI.create(release.downloadUrl())));
+        }
+        return jars;
+    }
+
+    private static String readEntry(Path jar, List<String> names) {
+        try (ZipFile zip = new ZipFile(jar.toFile())) {
+            for (String name : names) {
+                ZipEntry entry = zip.getEntry(name);
+                if (entry != null) {
+                    try (InputStream in = zip.getInputStream(entry)) {
+                        return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+                    }
+                }
+            }
+        } catch (IOException unreadable) {
+            // a half-written or foreign jar — the fallback below still applies
+        }
+        return null;
+    }
+
+    /** The GitHub tag whose release note describes this build, or null for a local build. */
+    private static String tagFor(ServerRelease release) {
+        return switch (release.source()) {
+            case CENTRAL -> "v" + release.version();
+            case SNAPSHOT -> {
+                String url = release.downloadUrl();
+                if (url == null || !url.startsWith(DOWNLOADS)) yield null;
+                String rest = url.substring(DOWNLOADS.length());
+                yield rest.substring(0, rest.indexOf('/'));
+            }
+            case LOCAL -> null;
+        };
+    }
+
+    /**
+     * The one section of a Keep-a-Changelog file that belongs to this build:
+     * {@code ## [<version>]} for a release, {@code ## [Unreleased]} for a
+     * snapshot — what the branch has changed and not released yet. When the
+     * section is missing or empty that is said in a line rather than showing
+     * a different version's news.
+     */
+    static String section(String changelog, String version) {
+        String heading = version.endsWith("-SNAPSHOT") ? "## [Unreleased]" : "## [" + version + "]";
+        String out = between(changelog, heading);
+        // The release workflow renames [Unreleased] to the version before it
+        // builds the jar, so a release normally finds its own heading. A
+        // release built by hand has not been renamed - then [Unreleased] is
+        // the section that was about to become it.
+        if (out.isEmpty() && !version.endsWith("-SNAPSHOT")) {
+            heading = "## [Unreleased]";
+            out = between(changelog, heading);
+        }
+        if (out.isEmpty()) return heading + "\n\nNo such section in the changelog this build carries.";
+        if (out.lines().skip(1).allMatch(String::isBlank)) {
+            return out.strip() + "\n\nNo entries — nothing is written up for this build yet.";
+        }
+        return out.strip();
+    }
+
+    /** The heading line and everything up to the next version heading; empty when absent. */
+    private static String between(String changelog, String heading) {
+        StringBuilder out = new StringBuilder();
+        boolean inside = false;
+        for (String line : changelog.split("\\R")) {
+            if (line.startsWith(heading)) {
+                inside = true;
+                out.append(line).append('\n');
+            } else if (inside && line.startsWith("## [")) {
+                break;
+            } else if (inside) {
+                out.append(line).append('\n');
+            }
+        }
+        return out.toString();
+    }
+
     public Path execJar(String version) {
         return home.dir().resolve(APP + "-" + version + "-exec.jar");
     }
@@ -270,6 +473,12 @@ public final class ServerReleases {
             throws IOException, InterruptedException {
         if (release.downloadUrl() == null) return false;
         URI uri = URI.create(release.downloadUrl());
+        if ("file".equals(uri.getScheme())) {
+            // The local repository: a copy, not a download.
+            Files.copy(Path.of(uri), execJar(release.version()), StandardCopyOption.REPLACE_EXISTING);
+            percent.accept(100);
+            return true;
+        }
         HttpResponse<InputStream> response = http.send(
                 HttpRequest.newBuilder(uri).build(), HttpResponse.BodyHandlers.ofInputStream());
         if (response.statusCode() == 404) return false;

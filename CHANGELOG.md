@@ -24,6 +24,26 @@ evergreen download and installation instructions in
 
 ## [Unreleased]
 
+### Added
+
+- **Amethyst is the launcher's look.** Violet on a dark ground, with the same
+  values the admin web UI's default theme uses, so the launcher and the admin
+  UI it opens read as one product. Scroll bars, tooltips and popups go dark
+  with it. The light looks are still there behind `-Dlauncher.theme=clody`
+  (or `MC_LAUNCHER_THEME=clody`) and `-Dlauncher.theme=default` for the
+  framework's own.
+
+### Changed
+
+- **The Versions tab is three tabs now: Maven Central, Snapshots, Local.**
+  Central lists the releases, Snapshots only the snapshot channels, and Local
+  is new: the server builds in this machine's Maven repository (`~/.m2`) — what
+  `mvn install` in a server checkout left behind, newest first. *Install*
+  copies the executable jar into the launcher's home; a version with only the
+  plain jar is resolved with Maven, which works offline.
+- Build times in the version lists read `09-03 15:12` instead of the full
+  ISO timestamp — the year is noise in a list of rolling builds.
+
 ## [1.2.0] - 2026-09-03
 
 ### Added

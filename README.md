@@ -42,3 +42,45 @@ mvn -f javafx/pom.xml -pl mc-agent-admin-launcher -Pinstaller package jpackage:j
 ```
 
 (`DMG` on macOS; `MSI` on Windows, `DEB`/`RPM` on Linux.)
+
+## Releasing
+
+A release is a `v*` tag on `main`. Pushing it is the only manual step —
+[`release.yml`](.github/workflows/release.yml) does the rest in GitHub Actions:
+it builds the four installers, turns the `## [Unreleased]` section of
+[`CHANGELOG.md`](CHANGELOG.md) into the `## [<version>]` section and pushes
+that back to `main`, and creates the GitHub release with the installers and
+the release note (changelog entry + [`RELEASE_NOTES.md`](RELEASE_NOTES.md))
+attached. Nothing needs to be created or edited in the GitHub UI.
+
+1. Make sure everything that should ship is merged into `main`, and that
+   `CHANGELOG.md` says under `## [Unreleased]` what is new for a user.
+2. Run the release script with the next version
+   ([semantic versioning](https://semver.org/spec/v2.0.0.html)):
+
+   ```bash
+   ./release.sh 1.3.0
+   ```
+
+   It sets the Maven version of every `javafx/` module to `1.3.0` (that is
+   also the version the installers report to the OS), commits that, tags
+   `v1.3.0` and pushes `main` and the tag. It refuses when the tree is dirty,
+   `main` differs from `origin/main`, the tag already exists or is older than
+   the latest one, or the changelog has nothing to say (`--allow-empty-changelog`
+   overrides that last one). `--dry-run` does everything except push.
+3. Watch the build at
+   [Actions → release](https://github.com/mindconnect-ai/mc-clients/actions/workflows/release.yml)
+   (about 10–15 minutes; the Windows and Intel Mac runners are the slow ones).
+   The release shows up on the [releases page](https://github.com/mindconnect-ai/mc-clients/releases)
+   as soon as the first installer job finishes and fills up as the others do.
+4. `git pull` afterwards — the workflow has pushed the frozen changelog to `main`.
+
+The Maven version is the release version, with no `-SNAPSHOT` in between:
+`main` builds as the last release until the script moves it on, because the
+installers take their version from the POM and `jpackage` refuses a
+`-SNAPSHOT`. Nothing from this repository is deployed to a Maven repository,
+so a non-snapshot version on `main` costs nothing.
+
+If a build fails after the tag is pushed, fix `main`, delete the tag locally
+and on origin (`git tag -d v1.3.0 && git push origin :v1.3.0`), delete the
+half-made release on GitHub if one was created, and run the script again.
