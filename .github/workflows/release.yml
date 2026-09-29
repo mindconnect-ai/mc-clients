@@ -1,5 +1,6 @@
 # Builds the native installers — one per platform, each with a bundled Java
-# runtime — and attaches them to the GitHub release for the pushed tag.
+# runtime — and the VS Code extension's .vsix, and attaches them to the GitHub
+# release for the pushed tag.
 # Trigger: push a tag like v1.0.0.
 name: release
 
@@ -149,3 +150,39 @@ jobs:
             javafx/mc-agent-admin-launcher/target/installer/*.${{ matrix.ext }}
             javafx/mc-agent-admin-launcher/target/installer/*-all.jar
 
+  # The VS Code extension (typescript/mc-vscode) rides along as a .vsix — it is
+  # installed with "Install from VSIX…" or `code --install-extension`, no
+  # Marketplace needed. Its version is the release's: release.sh sets it in
+  # package.json, and it is set here again from the tag, so a tag pushed without
+  # the script still ships a VSIX that says what it is.
+  vscode-extension:
+    needs: notes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: typescript/mc-vscode/package-lock.json
+
+      - name: Build the VSIX
+        working-directory: typescript/mc-vscode
+        run: |
+          set -euo pipefail
+          ver="${GITHUB_REF_NAME#v}"
+          npm ci
+          npm version "$ver" --no-git-tag-version --allow-same-version
+          npx vsce package --no-dependencies -o "mindconnect-vscode-${ver}.vsix"
+
+      - name: Take the release note the notes job assembled
+        uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+
+      - name: Attach to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+          files: typescript/mc-vscode/mindconnect-vscode-*.vsix

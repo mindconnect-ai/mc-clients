@@ -14,6 +14,7 @@ into the Admin UI in your browser.
 | `…-windows-x64.msi` | Windows |
 | `…-linux-x64.deb` | Debian/Ubuntu |
 | `…-<platform>-all.jar` | Any OS with a Java 21+ runtime: `java -jar <file>` |
+| `mindconnect-vscode-<version>.vsix` | The VS Code extension — see below |
 
 The installers bundle their own Java runtime — nothing to install first.
 
@@ -38,3 +39,16 @@ Notarized builds are on the roadmap.
 
 SmartScreen may warn about an unknown publisher on first run — choose
 *More info* → *Run anyway*.
+
+## MindConnect for VS Code
+
+`mindconnect-vscode-<version>.vsix` runs the MindConnect server locally and
+brings its agents into the VS Code chat as `@mindconnect` — with the file,
+selection and folder you are working in; changes come as diffs you accept or
+reject. Not on the Marketplace yet; install the file directly:
+
+- VS Code → Extensions view → **⋯** → **Install from VSIX…**, or
+- `code --install-extension mindconnect-vscode-<version>.vsix`
+
+Then reload the window (*Developer: Reload Window*). The extension needs a
+Java 21+ runtime for the server it runs.
