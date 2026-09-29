@@ -24,6 +24,8 @@ evergreen download and installation instructions in
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-09-29
+
 ### Added
 
 - **VS Code extension** (`typescript/mc-vscode`, skeleton — not published yet).
