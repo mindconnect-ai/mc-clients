@@ -33,9 +33,9 @@ evergreen download and installation instructions in
   selection and problems you are looking at. The agent changes files through
   VS Code: every change opens as a diff you accept or reject, and an accepted
   one lands on the editor buffer, so undo and unsaved edits keep working. A
-  MindConnect view in the activity bar shows the Admin UI without an address
-  bar and lets you pick the server jar, Java and environment — API keys go to
-  the OS keychain.
+  MindConnect view in the activity bar lets you pick the server jar, Java and
+  environment — API keys go to the OS keychain — and opens the Admin UI as an
+  editor tab without an address bar.
 
 ## [1.3.0] - 2026-09-08
 

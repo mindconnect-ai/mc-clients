@@ -25,7 +25,6 @@ export function activate(context: vscode.ExtensionContext): void {
     adminUi,
     serverView,
     vscode.window.registerWebviewViewProvider(ServerView.viewId, serverView),
-    vscode.window.registerWebviewViewProvider(AdminUi.viewId, adminUi, { webviewOptions: { retainContextWhenHidden: true } }),
     registerChatParticipant(server, client, backChannel),
     // An explicit start — unlike the chat, it does not wait for autoStart.
     vscode.commands.registerCommand("mindconnect.server.start", () => withFeedback(server, () => server.start())),
@@ -35,7 +34,6 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand("mindconnect.openAdminUi", async () => {
       if (await withFeedback(server, () => server.start())) await adminUi.openInEditor();
     }),
-    vscode.commands.registerCommand("mindconnect.adminUi.openInEditor", () => adminUi.openInEditor()),
     vscode.commands.registerCommand("mindconnect.adminUi.reload", () => adminUi.reload()),
     vscode.commands.registerCommand("mindconnect.adminUi.openInBrowser", async () => {
       const url = await withFeedback(server, () => server.start());

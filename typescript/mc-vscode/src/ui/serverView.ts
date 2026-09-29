@@ -69,7 +69,7 @@ export class ServerView implements vscode.WebviewViewProvider, vscode.Disposable
       case "showLog":
         return this.server.showLog();
       case "openAdmin":
-        return void vscode.commands.executeCommand("mindconnect.adminUi.openInEditor");
+        return void vscode.commands.executeCommand("mindconnect.openAdminUi");
       case "browse": {
         const jar = m.field === "jarPath";
         const picked = await vscode.window.showOpenDialog({

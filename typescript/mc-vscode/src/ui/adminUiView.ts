@@ -4,15 +4,13 @@ import type { ServerManager } from "../server/serverManager";
 import { AdminUiProxy } from "./adminUiProxy";
 
 /**
- * The Admin UI inside VS Code, without an address bar: in the MindConnect
- * view container (like Source Control or Extensions) and, for more room, as
- * an editor tab. Both frame the UI through {@link AdminUiProxy}.
+ * The Admin UI inside VS Code, without an address bar, as an editor tab —
+ * the room its forms and tables need. Framed through {@link AdminUiProxy}.
  */
-export class AdminUi implements vscode.WebviewViewProvider, vscode.Disposable {
-  static readonly viewId = "mindconnect.adminUi";
+export class AdminUi implements vscode.Disposable {
+  static readonly panelId = "mindconnect.adminUiPanel";
 
   private readonly proxy: AdminUiProxy;
-  private view: vscode.WebviewView | undefined;
   private panel: vscode.WebviewPanel | undefined;
   private readonly subscription: vscode.Disposable;
 
@@ -21,20 +19,12 @@ export class AdminUi implements vscode.WebviewViewProvider, vscode.Disposable {
     this.subscription = server.onDidChangeState(() => void this.refresh());
   }
 
-  resolveWebviewView(view: vscode.WebviewView): void {
-    this.view = view;
-    this.configure(view.webview);
-    view.onDidDispose(() => (this.view = undefined));
-    void this.refresh();
-  }
-
-  /** The Admin UI as an editor tab — the room a form-heavy page needs. */
   async openInEditor(): Promise<void> {
     if (this.panel) {
       this.panel.reveal();
       return;
     }
-    this.panel = vscode.window.createWebviewPanel("mindconnect.adminUiPanel", "MindConnect Admin", vscode.ViewColumn.Active, {
+    this.panel = vscode.window.createWebviewPanel(AdminUi.panelId, "MindConnect Admin", vscode.ViewColumn.Active, {
       enableScripts: true,
       retainContextWhenHidden: true,
     });
@@ -68,9 +58,7 @@ export class AdminUi implements vscode.WebviewViewProvider, vscode.Disposable {
     // mc-host=vscode tells the Admin UI it is embedded — it switches to the theme
     // that takes VS Code's colours (see the host-theme message below).
     const src = url ? `${await this.proxy.start()}/?mc-host=vscode&v=${force ? Date.now() : 0}` : undefined;
-    for (const webview of [this.view?.webview, this.panel?.webview]) {
-      if (webview) webview.html = html(webview, src, this.server.state.kind);
-    }
+    if (this.panel) this.panel.webview.html = html(this.panel.webview, src, this.server.state.kind);
   }
 }
 

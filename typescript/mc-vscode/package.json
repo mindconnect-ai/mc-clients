@@ -69,7 +69,8 @@
       {
         "command": "mindconnect.openAdminUi",
         "title": "Open Admin UI",
-        "category": "MindConnect"
+        "category": "MindConnect",
+        "icon": "$(window)"
       },
       {
         "command": "mindconnect.selectAgent",
@@ -100,12 +101,6 @@
         "icon": "$(debug-restart)"
       },
       {
-        "command": "mindconnect.adminUi.openInEditor",
-        "title": "Open Admin UI in Editor",
-        "category": "MindConnect",
-        "icon": "$(link-external)"
-      },
-      {
         "command": "mindconnect.adminUi.reload",
         "title": "Reload Admin UI",
         "category": "MindConnect",
@@ -133,6 +128,16 @@
         {
           "command": "mindconnect.proposal.reject",
           "when": "resourceScheme == mindconnect-proposal",
+          "group": "navigation@2"
+        },
+        {
+          "command": "mindconnect.adminUi.reload",
+          "when": "activeWebviewPanelId == mindconnect.adminUiPanel",
+          "group": "navigation@1"
+        },
+        {
+          "command": "mindconnect.adminUi.openInBrowser",
+          "when": "activeWebviewPanelId == mindconnect.adminUiPanel",
           "group": "navigation@2"
         }
       ],
@@ -163,19 +168,9 @@
           "group": "navigation@3"
         },
         {
-          "command": "mindconnect.adminUi.reload",
-          "when": "view == mindconnect.adminUi",
-          "group": "navigation@1"
-        },
-        {
-          "command": "mindconnect.adminUi.openInEditor",
-          "when": "view == mindconnect.adminUi",
-          "group": "navigation@2"
-        },
-        {
-          "command": "mindconnect.adminUi.openInBrowser",
-          "when": "view == mindconnect.adminUi",
-          "group": "navigation@3"
+          "command": "mindconnect.openAdminUi",
+          "when": "view == mindconnect.server",
+          "group": "navigation@0"
         }
       ]
     },
@@ -250,11 +245,6 @@
           "type": "webview",
           "id": "mindconnect.server",
           "name": "Server"
-        },
-        {
-          "type": "webview",
-          "id": "mindconnect.adminUi",
-          "name": "Admin UI"
         }
       ]
     }
