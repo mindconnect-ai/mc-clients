@@ -28,7 +28,7 @@ const MAX_DIAGNOSTICS = 20;
  * does not have them yet.
  */
 export async function collectContext(request: vscode.ChatRequest): Promise<EditorContext> {
-  const editor = vscode.window.activeTextEditor;
+  const editor = currentEditor();
   const folders = vscode.workspace.workspaceFolders ?? [];
   const active = editor ? vscode.workspace.getWorkspaceFolder(editor.document.uri) : undefined;
   const root = active ?? folders[0];
@@ -94,6 +94,44 @@ export async function collectContext(request: vscode.ChatRequest): Promise<Edito
     prompt,
     used,
   };
+}
+
+let lastActive: vscode.TextEditor | undefined;
+
+/**
+ * Remembers the last text editor that had focus. activeTextEditor is empty
+ * while the focus is elsewhere and no editor has had it yet — right after a
+ * window reload, with the file plainly on screen, the first chat turn would
+ * otherwise go out without it.
+ */
+export function trackActiveEditor(): vscode.Disposable {
+  lastActive = vscode.window.activeTextEditor ?? lastActive;
+  return vscode.window.onDidChangeActiveTextEditor((e) => {
+    if (e && e.document.uri.scheme !== "output") lastActive = e;
+  });
+}
+
+/**
+ * The file the user is looking at: the active editor; else the last one that
+ * was, while it is still on screen; else the file in the active tab of any
+ * editor group (the chat may itself be an editor tab); else the first visible
+ * file editor.
+ */
+function currentEditor(): vscode.TextEditor | undefined {
+  const active = vscode.window.activeTextEditor;
+  if (active) return active;
+  const visible = vscode.window.visibleTextEditors.filter((e) => e.document.uri.scheme === "file");
+  const shown = (uri: vscode.Uri) => visible.find((e) => e.document.uri.toString() === uri.toString());
+  if (lastActive && shown(lastActive.document.uri)) return shown(lastActive.document.uri);
+  const groups = [vscode.window.tabGroups.activeTabGroup, ...vscode.window.tabGroups.all];
+  for (const group of groups) {
+    const input = group.activeTab?.input;
+    if (input instanceof vscode.TabInputText) {
+      const editor = shown(input.uri);
+      if (editor) return editor;
+    }
+  }
+  return visible[0];
 }
 
 /** A #file or #selection attachment as text. */

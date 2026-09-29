@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { MindconnectClient } from "./api/client";
 import { BackChannel } from "./backchannel/backChannel";
 import { registerChatParticipant } from "./chat/participant";
+import { trackActiveEditor } from "./context/editorContext";
 import { EnvStore } from "./server/envStore";
 import { ServerManager } from "./server/serverManager";
 import { AdminUi } from "./ui/adminUiView";
@@ -25,6 +26,7 @@ export function activate(context: vscode.ExtensionContext): void {
     adminUi,
     serverView,
     vscode.window.registerWebviewViewProvider(ServerView.viewId, serverView),
+    trackActiveEditor(),
     registerChatParticipant(server, client, backChannel, context.extensionUri),
     // An explicit start — unlike the chat, it does not wait for autoStart.
     vscode.commands.registerCommand("mindconnect.server.start", () => withFeedback(server, () => server.start())),
