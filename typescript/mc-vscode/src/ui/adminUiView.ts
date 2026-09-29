@@ -28,7 +28,10 @@ export class AdminUi implements vscode.Disposable {
       enableScripts: true,
       retainContextWhenHidden: true,
     });
-    this.panel.iconPath = vscode.Uri.joinPath(this.extensionUri, "media", "mindconnect.svg");
+    this.panel.iconPath = {
+      light: vscode.Uri.joinPath(this.extensionUri, "media", "logo-light.svg"),
+      dark: vscode.Uri.joinPath(this.extensionUri, "media", "logo-dark.svg"),
+    };
     this.configure(this.panel.webview);
     this.panel.onDidDispose(() => (this.panel = undefined));
     await this.refresh();

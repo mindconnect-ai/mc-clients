@@ -26,7 +26,12 @@ export interface ChatHooks {
   workingDirChanged(dir: string | undefined): void;
 }
 
-export function registerChatParticipant(server: ServerManager, client: MindconnectClient, hooks: ChatHooks): vscode.Disposable {
+export function registerChatParticipant(
+  server: ServerManager,
+  client: MindconnectClient,
+  hooks: ChatHooks,
+  extensionUri: vscode.Uri,
+): vscode.Disposable {
   const participant = vscode.chat.createChatParticipant("mindconnect.chat", async (request, chat, stream, token) => {
     if (request.command === "agent") {
       await vscode.commands.executeCommand("mindconnect.selectAgent");
@@ -84,7 +89,10 @@ export function registerChatParticipant(server: ServerManager, client: Mindconne
     }
     return failure ? { errorDetails: { message: failure }, metadata: turn } : { metadata: turn };
   });
-  participant.iconPath = new vscode.ThemeIcon("hubot");
+  participant.iconPath = {
+    light: vscode.Uri.joinPath(extensionUri, "media", "logo-light.svg"),
+    dark: vscode.Uri.joinPath(extensionUri, "media", "logo-dark.svg"),
+  };
   return participant;
 }
 

@@ -25,7 +25,7 @@ export function activate(context: vscode.ExtensionContext): void {
     adminUi,
     serverView,
     vscode.window.registerWebviewViewProvider(ServerView.viewId, serverView),
-    registerChatParticipant(server, client, backChannel),
+    registerChatParticipant(server, client, backChannel, context.extensionUri),
     // An explicit start — unlike the chat, it does not wait for autoStart.
     vscode.commands.registerCommand("mindconnect.server.start", () => withFeedback(server, () => server.start())),
     vscode.commands.registerCommand("mindconnect.server.restart", () => withFeedback(server, () => server.restart())),
