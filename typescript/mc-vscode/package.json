@@ -2,7 +2,7 @@
   "name": "mindconnect",
   "displayName": "MindConnect",
   "description": "Run the MindConnect agent server locally and talk to its agents from the VS Code chat — with the file, selection and folder you are working in.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "mindconnect-ai",
   "license": "Apache-2.0",
   "repository": {
