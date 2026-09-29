@@ -1,0 +1,53 @@
+@use "@angular/material" as mat;
+
+@include mat.core();
+
+$primary: mat.define-palette(mat.$blue-palette);
+$accent: mat.define-palette(mat.$cyan-palette);
+$warn: mat.define-palette(mat.$red-palette);
+$theme: mat.define-dark-theme((
+  color: (primary: $primary, accent: $accent, warn: $warn),
+));
+
+html { @include mat.all-component-themes($theme); }
+
+html, body { height: 100%; margin: 0; font-family: Roboto, sans-serif; }
+
+.chat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.bubble {
+  max-width: 80%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  word-break: break-word;
+}
+.bubble.user { align-self: flex-end; background: #1565c0; }
+.bubble.bot { align-self: flex-start; background: #37474f; }
+.bubble .speaker { font-size: 0.75rem; opacity: 0.7; margin-bottom: 4px; }
+.bubble.streaming::after { content: "▍"; animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+.tool-card, .approval-card { align-self: flex-start; max-width: 80%; }
+.approval-card { border: 1px solid #4dd0e1; }
+.tool-card pre, .approval-card pre, .bubble pre {
+  background: rgba(0, 0, 0, 0.35); padding: 8px; border-radius: 8px; overflow-x: auto;
+  font-family: ui-monospace, monospace; font-size: 0.8rem;
+}
+.approval-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.composer {
+  display: flex; gap: 8px; align-items: flex-end;
+  padding: 8px 16px; border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.composer mat-form-field { flex: 1; }
+
+.sidebar { width: 280px; padding: 8px; }
+.sidebar h3 { margin: 12px 8px 4px; font-size: 0.8rem; opacity: 0.7; }

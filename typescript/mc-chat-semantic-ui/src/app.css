@@ -1,0 +1,10 @@
+/* App-level layout on top of sui.css + chat-ui.css. The chat look itself
+   comes from the vendored chat-ui.css; this only sizes the shell to fill the
+   viewport and gives the standalone agent picker a little breathing room. */
+html, body { height: 100%; margin: 0; }
+#sui-root { display: block; height: 100vh; }
+
+.chat-page { display: flex; flex-direction: column; height: 100%; }
+.chat-page .chat-container { flex: 1; overflow-y: auto; }
+
+.muted { color: var(--sui-color-text-muted, #8b94a1); padding: 1rem; }
