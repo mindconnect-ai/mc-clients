@@ -12,11 +12,17 @@ export class AdminUi implements vscode.Disposable {
 
   private readonly proxy: AdminUiProxy;
   private panel: vscode.WebviewPanel | undefined;
-  private readonly subscription: vscode.Disposable;
+  private readonly subscriptions: vscode.Disposable[];
+  /** Per server URL: does it ship the VS Code themes (mindconnect 0.8.5+)? */
+  private readonly themed = new Map<string, Promise<boolean>>();
 
   constructor(private readonly server: ServerManager, private readonly extensionUri: vscode.Uri) {
     this.proxy = new AdminUiProxy(server.log);
-    this.subscription = server.onDidChangeState(() => void this.refresh());
+    this.subscriptions = [
+      server.onDidChangeState(() => void this.refresh()),
+      // The Admin UI wears the editor's theme — switch along with it.
+      vscode.window.onDidChangeActiveColorTheme(() => void this.refresh(true)),
+    ];
   }
 
   async openInEditor(): Promise<void> {
@@ -43,7 +49,7 @@ export class AdminUi implements vscode.Disposable {
   }
 
   dispose(): void {
-    this.subscription.dispose();
+    this.subscriptions.forEach((s) => s.dispose());
     this.panel?.dispose();
     this.proxy.dispose();
   }
@@ -55,13 +61,43 @@ export class AdminUi implements vscode.Disposable {
     });
   }
 
+  private hasVsCodeThemes(url: string): Promise<boolean> {
+    let known = this.themed.get(url);
+    if (!known) {
+      known = fetch(`${url}/css/vscode.css`, { method: "HEAD" }).then((r) => r.ok, () => false);
+      this.themed.set(url, known);
+    }
+    return known;
+  }
+
   private async refresh(force = false): Promise<void> {
     const url = this.server.url;
     this.proxy.setTarget(url);
-    // mc-host=vscode tells the Admin UI it is embedded — it switches to the theme
-    // that takes VS Code's colours (see the host-theme message below).
-    const src = url ? `${await this.proxy.start()}/?mc-host=vscode&v=${force ? Date.now() : 0}` : undefined;
+    // mc-host=vscode tells the Admin UI it is embedded (see the host-theme message
+    // below). A server that ships the VS Code themes is also told which one —
+    // ?theme= is the Admin UI's own switch; an older one keeps its default look
+    // rather than get a theme id it would not know.
+    let src: string | undefined;
+    if (url) {
+      const params = new URLSearchParams({ "mc-host": "vscode" });
+      if (await this.hasVsCodeThemes(url)) params.set("theme", themeFor(vscode.window.activeColorTheme.kind));
+      params.set("v", String(force ? Date.now() : 0));
+      src = `${await this.proxy.start()}/chat?${params}`;
+    }
     if (this.panel) this.panel.webview.html = html(this.panel.webview, src, this.server.state.kind);
+  }
+}
+
+/** The Admin UI theme for a VS Code theme kind. */
+function themeFor(kind: vscode.ColorThemeKind): string {
+  switch (kind) {
+    case vscode.ColorThemeKind.HighContrast:
+      return "vscode-hc";
+    case vscode.ColorThemeKind.Light:
+    case vscode.ColorThemeKind.HighContrastLight:
+      return "vscode-light";
+    default:
+      return "vscode-dark";
   }
 }
 
