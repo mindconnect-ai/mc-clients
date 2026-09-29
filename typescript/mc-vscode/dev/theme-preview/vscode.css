@@ -1,0 +1,261 @@
+/*
+ * PROTOTYPE of the Admin UI's "vscode" theme — for looking at it before it is
+ * built for real in mindconnect (agents/server/mc-agent-admin-ui-rest/.../css).
+ * Same shape as clody.css / amethyst.css: an overlay on :root.sui-theme-vscode
+ * that only sets framework tokens, here from VS Code's own colour variables.
+ *
+ * The --vscode-* variables arrive from the host (bridge.js, message
+ * mc-host-theme); the fallbacks are VS Code "Dark Modern" so the page is right
+ * before the first message. The kind classes (sui-host-kind-*) switch the few
+ * things a variable cannot carry: color-scheme, the logo filter.
+ */
+
+/* ══ Tokens ══════════════════════════════════════════════════════════════ */
+
+:root.sui-theme-vscode {
+    --sui-color-bg:            var(--vscode-editor-background, #1f1f1f);
+    --sui-color-surface:       var(--vscode-editorWidget-background, #202020);
+    --sui-color-surface-alt:   var(--vscode-list-hoverBackground, #2a2d2e);
+    --sui-color-text:          var(--vscode-foreground, #cccccc);
+    --sui-color-text-strong:   var(--vscode-editor-foreground, #e7e7e7);
+    --sui-color-text-body:     var(--vscode-foreground, #cccccc);
+    --sui-color-text-muted:    var(--vscode-descriptionForeground, #9d9d9d);
+    --sui-color-text-subtle:   var(--vscode-disabledForeground, #8b8b8b);
+    --sui-color-border:        var(--vscode-panel-border, #2b2b2b);
+    --sui-color-border-soft:   var(--vscode-editorGroup-border, #ffffff17);
+    --sui-color-border-strong: var(--vscode-input-border, #3c3c3c);
+
+    --sui-color-primary:       var(--vscode-textLink-foreground, #4daafc);
+    --sui-color-primary-hover: var(--vscode-textLink-activeForeground, #4daafc);
+    --sui-color-primary-soft:  var(--vscode-list-activeSelectionBackground, #04395e);
+    --sui-color-on-primary:    var(--vscode-button-foreground, #ffffff);
+
+    --sui-color-action:        var(--vscode-button-background, #0078d4);
+    --sui-color-action-hover:  var(--vscode-button-hoverBackground, #026ec1);
+    --sui-color-on-action:     var(--vscode-button-foreground, #ffffff);
+
+    --sui-color-danger:          var(--vscode-errorForeground, #f85149);
+    --sui-color-danger-bg:       var(--vscode-inputValidation-errorBackground, #5a1d1d);
+    --sui-color-danger-bg-hover: color-mix(in srgb, var(--sui-color-danger-bg) 80%, var(--sui-color-danger));
+    --sui-color-danger-border:   var(--vscode-inputValidation-errorBorder, #be1100);
+    --sui-color-success:         var(--vscode-testing-iconPassed, #73c991);
+    --sui-color-success-bg:      color-mix(in srgb, var(--sui-color-success) 14%, transparent);
+    --sui-color-success-border:  color-mix(in srgb, var(--sui-color-success) 45%, transparent);
+    --sui-color-warning:         var(--vscode-editorWarning-foreground, #cca700);
+    --sui-color-warning-bg:      var(--vscode-inputValidation-warningBackground, #352a05);
+
+    --sui-color-required:      var(--vscode-errorForeground, #f85149);
+    --sui-color-empty:         var(--vscode-descriptionForeground, #9d9d9d);
+
+    --sui-color-code-bg:       var(--vscode-textCodeBlock-background, #2b2b2b);
+    --sui-color-code-fg:       var(--vscode-editor-foreground, #cccccc);
+    --sui-color-blockquote-border: var(--vscode-textBlockQuote-border, #616161);
+
+    /* VS Code's density: 13px everywhere, headings barely larger, and about
+       half the framework's spacing. Setting the scales moves every component
+       at once; the few fixed sizes follow under "Density" below. */
+    --sui-text-xs:   11px;
+    --sui-text-sm:   12px;
+    --sui-text-md:   13px;
+    --sui-text-lg:   13px;
+    --sui-text-xl:   14px;
+    --sui-text-2xl:  18px;
+
+    --sui-space-hair: 1px;
+    --sui-space-xs:   2px;
+    --sui-space-sm:   4px;
+    --sui-space-md:   8px;
+    --sui-space-lg:   10px;
+    --sui-space-xl:   12px;
+    --sui-space-2xl:  16px;
+    --sui-space-3xl:  20px;
+
+    /* sui.css sizes list headers around a 30px button; ours is 26px. */
+    --sui-list-header-h: calc(26px + 2 * var(--sui-space-lg) + 1px);
+
+    /* VS Code is square-ish: 2px on controls, a little more on containers. */
+    --sui-radius-sm:   2px;
+    --sui-radius-md:   4px;
+    --sui-radius-lg:   6px;
+    --sui-radius-pill: 999px;
+
+    --sui-font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", system-ui, sans-serif);
+    --sui-font-mono:   var(--vscode-editor-font-family, Menlo, Monaco, "Courier New", monospace);
+    --sui-font-size:   var(--vscode-font-size, 13px);
+
+    /* Depth only for what floats, in VS Code's own widget shadow. */
+    --sui-shadow-card:    none;
+    --sui-shadow-pop:     0 0 8px 2px var(--vscode-widget-shadow, rgba(0, 0, 0, .36));
+    --sui-shadow-popover: 0 0 8px 2px var(--vscode-widget-shadow, rgba(0, 0, 0, .36));
+    --sui-focus-ring:     0 0 0 1px var(--vscode-focusBorder, #0078d4);
+
+    --sui-header-bg:           var(--vscode-sideBar-background, #181818);
+    --sui-header-fg:           var(--vscode-foreground, #cccccc);
+    --sui-header-brand-fg:     var(--vscode-foreground, #cccccc);
+    --sui-header-nav-fg:       var(--vscode-descriptionForeground, #9d9d9d);
+    --sui-header-nav-fg-hover: var(--vscode-foreground, #cccccc);
+    --sui-header-nav-bg-hover: var(--vscode-toolbar-hoverBackground, #5a5d5e50);
+    --sui-header-radius:       0;
+    --sui-header-shadow:       none;
+    --sui-header-logo-filter:  brightness(0) invert(.8);
+
+    color-scheme: dark;
+}
+
+:root.sui-theme-vscode.sui-host-kind-light,
+:root.sui-theme-vscode.sui-host-kind-high-contrast-light {
+    --sui-header-logo-filter: brightness(0) invert(.2);
+    color-scheme: light;
+}
+
+/* High contrast: VS Code draws outlines instead of fills — so do we. */
+:root.sui-theme-vscode:is(.sui-host-kind-high-contrast, .sui-host-kind-high-contrast-light) {
+    --sui-color-border:        var(--vscode-contrastBorder, #6fc3df);
+    --sui-color-border-soft:   var(--vscode-contrastBorder, #6fc3df);
+    --sui-color-border-strong: var(--vscode-contrastActiveBorder, #f38518);
+    --sui-focus-ring:          0 0 0 1px var(--vscode-contrastActiveBorder, #f38518);
+}
+
+
+/* ══ What the tokens cannot reach ════════════════════════════════════════ */
+
+:root.sui-theme-vscode .sui-field select:not([multiple]) {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238b8b8b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+
+:root.sui-theme-vscode .sui-toast--info    { --sui-toast-bg: var(--vscode-notifications-background, #202020); --sui-toast-ring: var(--vscode-notifications-border, #2b2b2b); --sui-toast-fg: var(--vscode-notifications-foreground, #cccccc); }
+:root.sui-theme-vscode .sui-toast--success { --sui-toast-bg: var(--sui-color-success-bg); --sui-toast-ring: var(--sui-color-success-border); --sui-toast-fg: var(--sui-color-success); }
+:root.sui-theme-vscode .sui-toast--warn    { --sui-toast-bg: var(--sui-color-warning-bg); --sui-toast-ring: var(--sui-color-warning); --sui-toast-fg: var(--sui-color-warning); }
+:root.sui-theme-vscode .sui-toast--error   { --sui-toast-bg: var(--sui-color-danger-bg);  --sui-toast-ring: var(--sui-color-danger-border); --sui-toast-fg: var(--sui-color-danger); }
+
+:root.sui-theme-vscode .sui-dialog-backdrop {
+    background: rgba(0, 0, 0, .4);
+}
+
+
+/* ══ Base ════════════════════════════════════════════════════════════════ */
+
+:root.sui-theme-vscode body {
+    line-height: 1.45;
+}
+
+:root.sui-theme-vscode .sui-shell,
+:root.sui-theme-vscode .sui-shell-body,
+:root.sui-theme-vscode .sui-shell-content {
+    background: var(--sui-color-bg);
+}
+
+/* Hairlines instead of cards, like the editor's own panels. */
+:root.sui-theme-vscode :is(.sui-table, .sui-tree, .sui-detail),
+:root.sui-theme-vscode .sui-form:not(.chat-form),
+:root.sui-theme-vscode .sui-list:not(.chat-container) {
+    border: 1px solid var(--sui-color-border);
+    box-shadow: none;
+}
+
+:root.sui-theme-vscode .sui-tabs + .sui-panels > .sui-panel > :is(.sui-list, .sui-table, .sui-detail, .sui-form),
+:root.sui-theme-vscode .sui-tabs + .sui-panels > .sui-panel > .sui-stack > :is(.sui-list, .sui-table) {
+    border: none;
+}
+
+
+/* ══ Header & navigation — the title bar and the side bar ════════════════ */
+
+:root.sui-theme-vscode .sui-header {
+    border-bottom: 1px solid var(--vscode-sideBar-border, var(--sui-color-border));
+}
+
+:root.sui-theme-vscode .sui-header-user .sui-avatar,
+:root.sui-theme-vscode .sui-header-avatar {
+    background: var(--vscode-badge-background, #616161);
+    color: var(--vscode-badge-foreground, #f8f8f8);
+}
+
+:root.sui-theme-vscode .sui-shell-body > .sui-menu {
+    background: var(--vscode-sideBar-background, #181818);
+    border: none;
+    border-right: 1px solid var(--vscode-sideBar-border, var(--sui-color-border));
+}
+
+:root.sui-theme-vscode .sui-menu {
+    box-shadow: none;
+}
+
+
+/* ══ Density — the sizes sui.css fixes outside the scales ═══════════════ */
+
+/* Buttons as in VS Code: 13px regular, 26px high (18px line + 4px padding). */
+:root.sui-theme-vscode .sui-btn {
+    font-size: var(--sui-text-md);
+    font-weight: 400;
+    line-height: 18px;
+    padding: 4px 11px;
+    border-radius: var(--sui-radius-sm);
+}
+
+/* Destructive actions in a row are text, not a red slab: VS Code keeps
+   "Delete" quiet until the pointer is on it. */
+:root.sui-theme-vscode .sui-btn--danger {
+    background: transparent;
+    color: var(--sui-color-danger);
+}
+:root.sui-theme-vscode .sui-btn--danger:hover:not(:disabled) {
+    background: var(--vscode-toolbar-hoverBackground, #5a5d5e50);
+}
+
+:root.sui-theme-vscode .sui-btn--secondary {
+    background: var(--vscode-button-secondaryBackground, #313131);
+    color: var(--vscode-button-secondaryForeground, #cccccc);
+    box-shadow: none;
+}
+:root.sui-theme-vscode .sui-btn--secondary:hover:not(:disabled) {
+    background: var(--vscode-button-secondaryHoverBackground, #3c3c3c);
+}
+
+/* Inputs: 26px, like VS Code's. */
+:root.sui-theme-vscode .sui-field :is(input:not([type=checkbox], [type=radio]), select) {
+    min-height: 26px;
+    box-sizing: border-box;
+}
+:root.sui-theme-vscode .sui-field input,
+:root.sui-theme-vscode .sui-field textarea,
+:root.sui-theme-vscode .sui-field select {
+    /* Only the height: the horizontal padding is the framework's, which makes
+       room for a leading icon (search) or the select's chevron. */
+    padding-block: 3px;
+    border-radius: var(--sui-radius-sm);
+    /* background-color, not background: the shorthand would reset the select's
+       chevron image to repeat across the whole field. */
+    background-color: var(--vscode-input-background, #313131);
+    color: var(--vscode-input-foreground, #cccccc);
+    border-color: var(--vscode-input-border, #3c3c3c);
+}
+
+/* The title bar is 35px in VS Code; 56px reads as a web app. */
+:root.sui-theme-vscode .sui-header {
+    height: 36px;
+    padding: 0 12px;
+    gap: 16px;
+}
+:root.sui-theme-vscode .sui-header-brand {
+    font-size: var(--sui-text-md);
+}
+
+/* Navigation rows at tree height. */
+:root.sui-theme-vscode .sui-menu-link {
+    padding: 3px 8px;
+    border-radius: var(--sui-radius-sm);
+}
+
+:root.sui-theme-vscode :is(.sui-list-header, .sui-table-header, .sui-form, .sui-detail) h2 {
+    font-weight: 600;
+}
+
+
+/* ══ Scrollbars — VS Code's sliders ══════════════════════════════════════ */
+
+:root.sui-theme-vscode ::-webkit-scrollbar { width: 10px; height: 10px; }
+:root.sui-theme-vscode ::-webkit-scrollbar-track { background: transparent; }
+:root.sui-theme-vscode ::-webkit-scrollbar-thumb { background: var(--vscode-scrollbarSlider-background, #79797966); }
+:root.sui-theme-vscode ::-webkit-scrollbar-thumb:hover { background: var(--vscode-scrollbarSlider-hoverBackground, #646464b3); }
+:root.sui-theme-vscode ::-webkit-scrollbar-thumb:active { background: var(--vscode-scrollbarSlider-activeBackground, #bfbfbf66); }
