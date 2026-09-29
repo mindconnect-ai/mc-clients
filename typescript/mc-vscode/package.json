@@ -1,0 +1,280 @@
+{
+  "name": "mindconnect",
+  "displayName": "MindConnect",
+  "description": "Run the MindConnect agent server locally and talk to its agents from the VS Code chat — with the file, selection and folder you are working in.",
+  "version": "0.1.3",
+  "publisher": "mindconnect-ai",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mindconnect-ai/mc-clients.git",
+    "directory": "typescript/mc-vscode"
+  },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "AI",
+    "Chat"
+  ],
+  "keywords": [
+    "agents",
+    "chat",
+    "llm",
+    "self-hosted"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "chatParticipants": [
+      {
+        "id": "mindconnect.chat",
+        "name": "mindconnect",
+        "fullName": "MindConnect",
+        "description": "Ask a MindConnect agent — it knows your workspace, file and selection",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "agent",
+            "description": "Pick the MindConnect agent this chat talks to"
+          },
+          {
+            "name": "new",
+            "description": "Start a fresh MindConnect session"
+          }
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "command": "mindconnect.server.start",
+        "title": "Start Server",
+        "category": "MindConnect",
+        "icon": "$(play)"
+      },
+      {
+        "command": "mindconnect.server.stop",
+        "title": "Stop Server",
+        "category": "MindConnect",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "mindconnect.server.showLog",
+        "title": "Show Server Log",
+        "category": "MindConnect",
+        "icon": "$(output)"
+      },
+      {
+        "command": "mindconnect.openAdminUi",
+        "title": "Open Admin UI",
+        "category": "MindConnect",
+        "icon": "$(window)"
+      },
+      {
+        "command": "mindconnect.selectAgent",
+        "title": "Select Agent",
+        "category": "MindConnect"
+      },
+      {
+        "command": "mindconnect.showMenu",
+        "title": "Show Menu",
+        "category": "MindConnect"
+      },
+      {
+        "command": "mindconnect.proposal.accept",
+        "title": "Accept Proposed Change",
+        "category": "MindConnect",
+        "icon": "$(check)"
+      },
+      {
+        "command": "mindconnect.proposal.reject",
+        "title": "Reject Proposed Change",
+        "category": "MindConnect",
+        "icon": "$(close)"
+      },
+      {
+        "command": "mindconnect.server.restart",
+        "title": "Restart Server",
+        "category": "MindConnect",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "mindconnect.adminUi.reload",
+        "title": "Reload Admin UI",
+        "category": "MindConnect",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "mindconnect.adminUi.openInBrowser",
+        "title": "Open Admin UI in Browser",
+        "category": "MindConnect",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "mindconnect.showView",
+        "title": "Show MindConnect View",
+        "category": "MindConnect"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "mindconnect.proposal.accept",
+          "when": "resourceScheme == mindconnect-proposal",
+          "group": "navigation@1"
+        },
+        {
+          "command": "mindconnect.proposal.reject",
+          "when": "resourceScheme == mindconnect-proposal",
+          "group": "navigation@2"
+        },
+        {
+          "command": "mindconnect.adminUi.reload",
+          "when": "activeWebviewPanelId == mindconnect.adminUiPanel",
+          "group": "navigation@1"
+        },
+        {
+          "command": "mindconnect.adminUi.openInBrowser",
+          "when": "activeWebviewPanelId == mindconnect.adminUiPanel",
+          "group": "navigation@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "mindconnect.proposal.accept",
+          "when": "resourceScheme == mindconnect-proposal"
+        },
+        {
+          "command": "mindconnect.proposal.reject",
+          "when": "resourceScheme == mindconnect-proposal"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "mindconnect.server.start",
+          "when": "view == mindconnect.server",
+          "group": "navigation@1"
+        },
+        {
+          "command": "mindconnect.server.stop",
+          "when": "view == mindconnect.server",
+          "group": "navigation@2"
+        },
+        {
+          "command": "mindconnect.server.showLog",
+          "when": "view == mindconnect.server",
+          "group": "navigation@3"
+        },
+        {
+          "command": "mindconnect.openAdminUi",
+          "when": "view == mindconnect.server",
+          "group": "navigation@0"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "MindConnect",
+      "properties": {
+        "mindconnect.server.mode": {
+          "type": "string",
+          "enum": [
+            "managed",
+            "external"
+          ],
+          "enumDescriptions": [
+            "The extension downloads the server and runs it on this machine.",
+            "Connect to a server that is already running (mindconnect.server.url)."
+          ],
+          "default": "managed",
+          "description": "Whether the extension runs the MindConnect server itself or connects to one."
+        },
+        "mindconnect.server.url": {
+          "type": "string",
+          "default": "http://localhost:9090",
+          "description": "Base URL of the server in external mode."
+        },
+        "mindconnect.server.version": {
+          "type": "string",
+          "default": "latest",
+          "description": "Server release to download from Maven Central in managed mode, e.g. 0.8.4. 'latest' takes the newest release."
+        },
+        "mindconnect.server.jarPath": {
+          "type": "string",
+          "default": "",
+          "description": "Run this executable jar instead of a downloaded release — for a local build (mc-agent-admin-ui-app-*-exec.jar)."
+        },
+        "mindconnect.server.javaHome": {
+          "type": "string",
+          "default": "",
+          "description": "Java 21+ installation to run the server with. Empty: JAVA_HOME, then java on the PATH."
+        },
+        "mindconnect.server.autoStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "Start the managed server when the chat first needs it."
+        },
+        "mindconnect.server.env": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Extra environment variables for the managed server, e.g. MC_PERSISTENCE or TAVILY_API_KEY. LLM keys are better configured in the Admin UI."
+        },
+        "mindconnect.agent": {
+          "type": "string",
+          "default": "vscode-assistant",
+          "description": "The agent @mindconnect talks to — its name or id. vscode-assistant is set up by the extension: coding-assistant with changes reviewed as diffs in VS Code."
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "mindconnect",
+          "title": "MindConnect",
+          "icon": "media/mindconnect.svg"
+        }
+      ]
+    },
+    "views": {
+      "mindconnect": [
+        {
+          "type": "webview",
+          "id": "mindconnect.server",
+          "name": "Server"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./ --noEmit && npm run bundle",
+    "bundle": "esbuild src/extension.ts --bundle --platform=node --target=node20 --format=cjs --external:vscode --sourcemap --outfile=out/extension.js",
+    "watch": "npm run bundle -- --watch",
+    "package": "vsce package",
+    "pretest": "tsc -p tsconfig.test.json",
+    "test": "node out-test/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^20.14.0",
+    "@types/vscode": "~1.95.0",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^3.2.0",
+    "esbuild": "^0.28.2",
+    "mocha": "^12.0.2",
+    "typescript": "^5.6.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.1",
+    "zod": "^4.6.5"
+  },
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#2e1065",
+    "theme": "dark"
+  }
+}

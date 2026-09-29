@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MindConnect — VS Code theme preview</title>
+<style>
+  :root { --bar: #181818; --fg: #cccccc; --line: #2b2b2b; --accent: #0078d4; }
+  html, body { margin: 0; height: 100%; background: var(--bar); color: var(--fg); font: 13px -apple-system, "Segoe UI", sans-serif; }
+  .toolbar { display: flex; gap: 6px; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .toolbar b { margin-right: 8px; }
+  .toolbar .sep { width: 1px; height: 18px; background: var(--line); margin: 0 6px; }
+  button { background: transparent; color: var(--fg); border: 1px solid var(--line); padding: 3px 10px; cursor: pointer; font: inherit; border-radius: 2px; }
+  button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .stage { display: flex; height: calc(100% - 38px); }
+  .activity { width: 48px; background: var(--bar); border-right: 1px solid var(--line); flex: none; }
+  .view { display: flex; flex-direction: column; border-right: 1px solid var(--line); flex: none; }
+  .view .title { padding: 8px 12px; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; opacity: .8; }
+  .view iframe { border: 0; flex: 1; width: 100%; }
+  .editor { flex: 1; }
+</style>
+</head>
+<body>
+  <div class="toolbar">
+    <b>VS Code theme preview</b>
+    <button data-theme="dark" aria-pressed="true">Dark Modern</button>
+    <button data-theme="light">Light Modern</button>
+    <button data-theme="hc">High Contrast</button>
+    <span class="sep"></span>
+    <button data-width="320" aria-pressed="true">Side bar (320 px)</button>
+    <button data-width="0">Editor tab (full width)</button>
+  </div>
+  <div class="stage">
+    <div class="activity"></div>
+    <div class="view" id="view">
+      <div class="title">MindConnect: Admin UI</div>
+      <iframe id="frame" src="/?mc-host=vscode"></iframe>
+    </div>
+    <div class="editor" id="editor"></div>
+  </div>
+<script>
+  // Values from VS Code's built-in themes (Dark Modern, Light Modern, Dark High Contrast) —
+  // the variables the webview would hand over, abridged to what the theme uses.
+  const THEMES = {
+    dark: { kind: "dark", vars: {
+      "--vscode-font-family": "-apple-system, BlinkMacSystemFont, sans-serif", "--vscode-font-size": "13px",
+      "--vscode-editor-font-family": "Menlo, Monaco, 'Courier New', monospace",
+      "--vscode-editor-background": "#1f1f1f", "--vscode-editor-foreground": "#cccccc",
+      "--vscode-foreground": "#cccccc", "--vscode-descriptionForeground": "#9d9d9d", "--vscode-disabledForeground": "#cccccc80",
+      "--vscode-sideBar-background": "#181818", "--vscode-sideBar-border": "#2b2b2b",
+      "--vscode-editorWidget-background": "#202020", "--vscode-widget-shadow": "#0000005c",
+      "--vscode-panel-border": "#2b2b2b", "--vscode-editorGroup-border": "#ffffff17", "--vscode-input-border": "#3c3c3c",
+      "--vscode-input-background": "#313131", "--vscode-input-foreground": "#cccccc",
+      "--vscode-focusBorder": "#0078d4", "--vscode-textLink-foreground": "#4daafc", "--vscode-textLink-activeForeground": "#4daafc",
+      "--vscode-button-background": "#0078d4", "--vscode-button-hoverBackground": "#026ec1", "--vscode-button-foreground": "#ffffff",
+      "--vscode-button-secondaryBackground": "#313131", "--vscode-button-secondaryForeground": "#cccccc", "--vscode-button-secondaryHoverBackground": "#3c3c3c",
+      "--vscode-list-hoverBackground": "#2a2d2e", "--vscode-list-activeSelectionBackground": "#04395e",
+      "--vscode-toolbar-hoverBackground": "#5a5d5e50", "--vscode-badge-background": "#616161", "--vscode-badge-foreground": "#f8f8f8",
+      "--vscode-errorForeground": "#f85149", "--vscode-inputValidation-errorBackground": "#5a1d1d", "--vscode-inputValidation-errorBorder": "#be1100",
+      "--vscode-editorWarning-foreground": "#cca700", "--vscode-inputValidation-warningBackground": "#352a05",
+      "--vscode-testing-iconPassed": "#73c991", "--vscode-textCodeBlock-background": "#2b2b2b", "--vscode-textBlockQuote-border": "#616161",
+      "--vscode-notifications-background": "#1f1f1f", "--vscode-notifications-foreground": "#cccccc", "--vscode-notifications-border": "#2b2b2b",
+      "--vscode-scrollbarSlider-background": "#79797966", "--vscode-scrollbarSlider-hoverBackground": "#646464b3", "--vscode-scrollbarSlider-activeBackground": "#bfbfbf66",
+    }, chrome: { bar: "#181818", fg: "#cccccc", line: "#2b2b2b" } },
+    light: { kind: "light", vars: {
+      "--vscode-font-family": "-apple-system, BlinkMacSystemFont, sans-serif", "--vscode-font-size": "13px",
+      "--vscode-editor-font-family": "Menlo, Monaco, 'Courier New', monospace",
+      "--vscode-editor-background": "#ffffff", "--vscode-editor-foreground": "#3b3b3b",
+      "--vscode-foreground": "#3b3b3b", "--vscode-descriptionForeground": "#717171", "--vscode-disabledForeground": "#61616180",
+      "--vscode-sideBar-background": "#f8f8f8", "--vscode-sideBar-border": "#e5e5e5",
+      "--vscode-editorWidget-background": "#f8f8f8", "--vscode-widget-shadow": "#00000029",
+      "--vscode-panel-border": "#e5e5e5", "--vscode-editorGroup-border": "#e5e5e5", "--vscode-input-border": "#cecece",
+      "--vscode-input-background": "#ffffff", "--vscode-input-foreground": "#3b3b3b",
+      "--vscode-focusBorder": "#005fb8", "--vscode-textLink-foreground": "#005fb8", "--vscode-textLink-activeForeground": "#005fb8",
+      "--vscode-button-background": "#005fb8", "--vscode-button-hoverBackground": "#0258a8", "--vscode-button-foreground": "#ffffff",
+      "--vscode-button-secondaryBackground": "#e5e5e5", "--vscode-button-secondaryForeground": "#3b3b3b", "--vscode-button-secondaryHoverBackground": "#cccccc",
+      "--vscode-list-hoverBackground": "#f2f2f2", "--vscode-list-activeSelectionBackground": "#e8e8e8",
+      "--vscode-toolbar-hoverBackground": "#b8b8b850", "--vscode-badge-background": "#cccccc", "--vscode-badge-foreground": "#3b3b3b",
+      "--vscode-errorForeground": "#f85149", "--vscode-inputValidation-errorBackground": "#f2dede", "--vscode-inputValidation-errorBorder": "#be1100",
+      "--vscode-editorWarning-foreground": "#bf8803", "--vscode-inputValidation-warningBackground": "#f6f5d2",
+      "--vscode-testing-iconPassed": "#388a34", "--vscode-textCodeBlock-background": "#f8f8f8", "--vscode-textBlockQuote-border": "#e5e5e5",
+      "--vscode-notifications-background": "#ffffff", "--vscode-notifications-foreground": "#3b3b3b", "--vscode-notifications-border": "#e5e5e5",
+      "--vscode-scrollbarSlider-background": "#64646466", "--vscode-scrollbarSlider-hoverBackground": "#646464b3", "--vscode-scrollbarSlider-activeBackground": "#00000099",
+    }, chrome: { bar: "#f8f8f8", fg: "#3b3b3b", line: "#e5e5e5" } },
+    hc: { kind: "high-contrast", vars: {
+      "--vscode-font-family": "-apple-system, BlinkMacSystemFont, sans-serif", "--vscode-font-size": "13px",
+      "--vscode-editor-font-family": "Menlo, Monaco, 'Courier New', monospace",
+      "--vscode-editor-background": "#000000", "--vscode-editor-foreground": "#ffffff",
+      "--vscode-foreground": "#ffffff", "--vscode-descriptionForeground": "#ffffffb3", "--vscode-disabledForeground": "#a5a5a5",
+      "--vscode-sideBar-background": "#000000", "--vscode-sideBar-border": "#6fc3df",
+      "--vscode-editorWidget-background": "#0c141f", "--vscode-widget-shadow": "transparent",
+      "--vscode-contrastBorder": "#6fc3df", "--vscode-contrastActiveBorder": "#f38518",
+      "--vscode-input-background": "#000000", "--vscode-input-foreground": "#ffffff", "--vscode-input-border": "#6fc3df",
+      "--vscode-focusBorder": "#f38518", "--vscode-textLink-foreground": "#21a6ff", "--vscode-textLink-activeForeground": "#21a6ff",
+      "--vscode-button-background": "#000000", "--vscode-button-hoverBackground": "#000000", "--vscode-button-foreground": "#ffffff",
+      "--vscode-button-secondaryBackground": "#000000", "--vscode-button-secondaryForeground": "#ffffff", "--vscode-button-secondaryHoverBackground": "#000000",
+      "--vscode-list-hoverBackground": "#000000", "--vscode-list-activeSelectionBackground": "#000000",
+      "--vscode-toolbar-hoverBackground": "#000000", "--vscode-badge-background": "#000000", "--vscode-badge-foreground": "#ffffff",
+      "--vscode-errorForeground": "#f48771", "--vscode-inputValidation-errorBackground": "#000000", "--vscode-inputValidation-errorBorder": "#f48771",
+      "--vscode-editorWarning-foreground": "#fff029", "--vscode-inputValidation-warningBackground": "#000000",
+      "--vscode-testing-iconPassed": "#73c991", "--vscode-textCodeBlock-background": "#000000", "--vscode-textBlockQuote-border": "#ffffff",
+      "--vscode-notifications-background": "#000000", "--vscode-notifications-foreground": "#ffffff", "--vscode-notifications-border": "#6fc3df",
+      "--vscode-scrollbarSlider-background": "#6fc3df99", "--vscode-scrollbarSlider-hoverBackground": "#6fc3dfcc", "--vscode-scrollbarSlider-activeBackground": "#6fc3df",
+    }, chrome: { bar: "#000000", fg: "#ffffff", line: "#6fc3df" } },
+  };
+
+  const frame = document.getElementById("frame");
+  let current = "dark";
+  const send = () => frame.contentWindow?.postMessage(
+    { type: "mc-host-theme", version: 1, host: "vscode", kind: THEMES[current].kind, vars: THEMES[current].vars }, location.origin);
+
+  function pick(group, value) {
+    document.querySelectorAll(`[data-${group}]`).forEach((b) => b.setAttribute("aria-pressed", String(b.dataset[group] === value)));
+  }
+  document.querySelectorAll("[data-theme]").forEach((b) => b.addEventListener("click", () => {
+    current = b.dataset.theme;
+    pick("theme", current);
+    const c = THEMES[current].chrome;
+    document.documentElement.style.setProperty("--bar", c.bar);
+    document.documentElement.style.setProperty("--fg", c.fg);
+    document.documentElement.style.setProperty("--line", c.line);
+    send();
+  }));
+  document.querySelectorAll("[data-width]").forEach((b) => b.addEventListener("click", () => {
+    pick("width", b.dataset.width);
+    const full = b.dataset.width === "0";
+    document.getElementById("view").style.flex = full ? "1" : "none";
+    document.getElementById("view").style.width = full ? "auto" : b.dataset.width + "px";
+    document.getElementById("editor").style.display = full ? "none" : "block";
+  }));
+  document.getElementById("view").style.width = "320px";
+  window.addEventListener("message", (e) => { if (e.source === frame.contentWindow && e.data?.type === "mc-host-ready") send(); });
+  frame.addEventListener("load", send);
+</script>
+</body>
+</html>

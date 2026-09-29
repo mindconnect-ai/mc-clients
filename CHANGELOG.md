@@ -24,6 +24,19 @@ evergreen download and installation instructions in
 
 ## [Unreleased]
 
+### Added
+
+- **VS Code extension** (`typescript/mc-vscode`, skeleton — not published yet).
+  It runs the MindConnect server locally (the Admin UI app's jar from Maven
+  Central, SHA-512 checked, Java 21, bound to 127.0.0.1) and brings the agents
+  into the VS Code chat as `@mindconnect`, knowing the workspace folder, file,
+  selection and problems you are looking at. The agent changes files through
+  VS Code: every change opens as a diff you accept or reject, and an accepted
+  one lands on the editor buffer, so undo and unsaved edits keep working. A
+  MindConnect view in the activity bar lets you pick the server jar, Java and
+  environment — API keys go to the OS keychain — and opens the Admin UI as an
+  editor tab without an address bar.
+
 ## [1.3.0] - 2026-09-08
 
 ### Added

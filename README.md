@@ -8,6 +8,7 @@ renderers do the drawing, the client supplies local handlers.
 | Folder | Technology | Status |
 |--------|------------|--------|
 | [`javafx/`](javafx/) | JavaFX desktop clients | active |
+| [`typescript/mc-vscode/`](typescript/mc-vscode/) | VS Code extension — local server + `@mindconnect` chat participant | skeleton |
 | `ios/` | Swift / iOS clients | idea — depends on a Semantic UI Swift renderer |
 
 ## JavaFX clients

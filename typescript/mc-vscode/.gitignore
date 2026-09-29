@@ -1,0 +1,6 @@
+node_modules/
+out/
+out-test/
+.vscode-test/
+*.vsix
+test-fixtures/workspace/new/
