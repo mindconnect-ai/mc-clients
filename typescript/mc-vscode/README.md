@@ -89,6 +89,18 @@ node dev/theme-preview/serve.mjs http://127.0.0.1:<server-port>
 Then open <http://localhost:18780/__preview/>. The files are read on every
 request — edit, reload.
 
+## Install without the Marketplace
+
+Every mc-clients release carries the extension as
+`mindconnect-vscode-<version>.vsix`
+([releases](https://github.com/mindconnect-ai/mc-clients/releases)):
+Extensions view → **⋯** → **Install from VSIX…**, or
+`code --install-extension mindconnect-vscode-<version>.vsix`, then
+*Developer: Reload Window*. Its version is the release's — `release.sh` sets
+it in `package.json`. A local build to try a change: raise the version
+(`npm version patch --no-git-tag-version`, not committed — VS Code caches
+icons by version), `npx vsce package --no-dependencies`, install the file.
+
 ## Run it from source
 
 ```bash

@@ -83,6 +83,11 @@ if [ "$current" != "$VERSION" ]; then
   # The parent and every module's <parent> reference, in one go.
   mvn -B -q -f "$POM" versions:set -DnewVersion="$VERSION" -DgenerateBackupPoms=false
   git add javafx/pom.xml javafx/*/pom.xml
+  # The VS Code extension ships with the release as a .vsix — same version, so
+  # every published one is newer than the last (VS Code caches by version).
+  command -v npm >/dev/null || fail "npm is needed to set the VS Code extension's version"
+  (cd typescript/mc-vscode && npm version "$VERSION" --no-git-tag-version --allow-same-version >/dev/null)
+  git add typescript/mc-vscode/package.json typescript/mc-vscode/package-lock.json
   git diff --cached --quiet && fail "versions:set changed nothing — is $POM at $current?"
   git commit -q -m "The app tells the OS the same version the tag says: $VERSION"
   echo "committed version bump: $(git rev-parse --short HEAD)"

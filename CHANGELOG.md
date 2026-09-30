@@ -24,6 +24,13 @@ evergreen download and installation instructions in
 
 ## [Unreleased]
 
+### Added
+
+- **The VS Code extension comes with every release** as
+  `mindconnect-vscode-<version>.vsix`, next to the installers — install it
+  with *Install from VSIX…* or `code --install-extension`, no Marketplace
+  needed. Its version now follows the release's.
+
 ## [1.4.0] - 2026-09-29
 
 ### Added
