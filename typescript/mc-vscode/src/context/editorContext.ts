@@ -52,8 +52,15 @@ export async function collectContext(references: readonly vscode.ChatPromptRefer
     // may well mean. Name it, and say the agent cannot read it as text.
     const tab = activeTab();
     if (tab) {
-      lines.push("", `Active tab: ${tab.label} (${tab.kind}${tab.uri ? `, ${display(tab.uri, root)}` : ""}) — not a text editor; its content is not in this context`);
+      lines.push("", `Active tab: ${tab.label} (${tab.kind}${tab.uri ? `, ${display(tab.uri, root)}` : ""}) — not a text editor`);
       if (tab.uri) used.push(tab.uri);
+      // A Markdown file in a WYSIWYG editor is still a text file: read it from disk.
+      const text = tab.uri ? await textOnDisk(tab.uri) : undefined;
+      if (text !== undefined) lines.push(`Its content (read from disk):`, fence(languageOf(tab.uri!), truncate(text, MAX_REFERENCE_CHARS)));
+      else lines.push("Its content is not in this context.");
+    } else {
+      // Said outright: without it the model keeps the last turn's editor state.
+      lines.push("", "No editor tabs are open — no file is open right now.");
     }
   }
 
@@ -101,7 +108,7 @@ export async function collectContext(references: readonly vscode.ChatPromptRefer
   }
 
   const prompt = lines.length
-    ? `<editor-context>\nThe user is working in VS Code. This is where they are right now:\n${lines.join("\n")}\n</editor-context>\n\n`
+    ? `<editor-context>\nThe user is working in VS Code. This is where they are right now — this block replaces any editor state mentioned earlier in the conversation:\n${lines.join("\n")}\n</editor-context>\n\n`
     : "";
   const tabs = openTabs();
   const summary = `active editor: ${editor ? display(editor.document.uri, root) : "none"}; active tab: ${activeTab()?.label ?? "none"}; `
@@ -270,6 +277,25 @@ function numbered(doc: vscode.TextDocument, from: number, to: number): string {
   const out: string[] = [];
   for (let i = from; i <= to; i++) out.push(`${String(i + 1).padStart(5)}  ${doc.lineAt(i).text}`);
   return out.join("\n");
+}
+
+const TEXT_EXTENSIONS = new Set([".md", ".markdown", ".txt", ".json", ".yaml", ".yml", ".xml", ".csv", ".html", ".css", ".js", ".ts", ".py", ".java", ".sh"]);
+
+/** The file's text when it is a text file on disk and not too large; undefined otherwise. */
+async function textOnDisk(uri: vscode.Uri): Promise<string | undefined> {
+  if (uri.scheme !== "file" || !TEXT_EXTENSIONS.has(path.extname(uri.fsPath).toLowerCase())) return undefined;
+  try {
+    const stat = await vscode.workspace.fs.stat(uri);
+    if (stat.size > 2_000_000) return undefined;
+    return new TextDecoder().decode(await vscode.workspace.fs.readFile(uri));
+  } catch {
+    return undefined;
+  }
+}
+
+function languageOf(uri: vscode.Uri): string {
+  const ext = path.extname(uri.fsPath).toLowerCase().slice(1);
+  return { md: "markdown", markdown: "markdown", yml: "yaml", ts: "typescript", js: "javascript", py: "python", sh: "bash" }[ext] ?? ext;
 }
 
 function fence(language: string, text: string): string {
