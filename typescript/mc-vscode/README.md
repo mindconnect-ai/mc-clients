@@ -10,6 +10,7 @@ selection and problems you are looking at.
 |------|-----|
 | **MindConnect view** | An activity bar entry like Source Control or Extensions. *Server*: status, start / restart / stop, release from Maven Central or a local jar (file picker), Java home, environment variables — names with KEY, SECRET, TOKEN or PASSWORD go to the OS keychain, not to settings.json. The **Admin UI** opens as an editor tab without an address bar — from the view's title bar, the status bar menu or *MindConnect: Open Admin UI*; its tab carries Reload and Open in Browser. |
 | **Local server** | Downloads the Admin UI app's executable jar from Maven Central (after asking — it is large), runs it with Java 21 on a free port bound to `127.0.0.1`, file persistence under the extension's global storage. Status bar item, output channel *MindConnect Server*, stops with the window. |
+| **Chat window** | MindConnect's own chat, no Copilot needed: the *Chat* view in the MindConnect container (⌘⌥M / Ctrl+Alt+M; drag it to the secondary side bar to have it beside the editor) or as an editor tab. Streams Markdown, shows tool calls and sub-agents as cards, approvals as buttons; the *Include* chip names the file (and selection) that goes with the message. Same sessions, context and back channel as the participant. |
 | **`@mindconnect` chat participant** | Each VS Code chat is one server session; the session id travels in the answer's metadata. Tokens stream as Markdown, tool calls and sub-agents show as progress, approvals come up as a modal dialog. |
 | **Editor context** | Sent ahead of every message: workspace folder, Git branch, active file with selection (or ±20 lines around the cursor), its errors and warnings, the other visible files, and anything attached with `#file` / `#selection`. Unsaved changes travel as text. |
 | **Back channel** | The agent changes files through VS Code, not behind its back: an MCP server inside the extension offers `edit_file`, `write_file`, `open_file` and `get_diagnostics`; the MindConnect server reaches it through its MCP gateway as `vscode_*` tools. A change opens as a diff — Accept / Reject in the editor title — and only an accepted one is applied, as a `WorkspaceEdit` on the buffer (undo works, unsaved changes are part of it) and saved. |
@@ -144,6 +145,9 @@ src/
   api/client.ts            REST + SSE client for /api/**
   context/editorContext.ts what the agent learns about the editor
   chat/participant.ts      @mindconnect: sessions, streaming, approvals
+  chat/chatView.ts         the Chat view and tab — sessions, streaming, approvals
+  chat/session.ts          what both chats share: the session, the agent setting
+  webview/chat.ts          the chat page (marked + DOMPurify), bundled separately
   backchannel/
     toolServer.ts          MCP server with the VS Code tools
     proposals.ts           diff view, Accept / Reject, WorkspaceEdit
@@ -176,8 +180,6 @@ open — with VS Code open, use the **Extension Tests** launch configuration
   mode can use its agents and workflows as tools.
 - **Language model chat provider**: the server's LLM configs in VS Code's
   model picker.
-- **Webview chat** in the secondary sidebar for editors without the chat view
-  (VSCodium, Cursor).
 - **Smaller download**: the exec jar is ~360 MB; a slimmer local server
   distribution or a platform-specific VSIX with a jlink runtime.
 - **Tests** with `@vscode/test-electron`; Marketplace and Open VSX publishing.

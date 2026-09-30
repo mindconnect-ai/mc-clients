@@ -27,7 +27,7 @@ const MAX_DIAGNOSTICS = 20;
  * Unsaved changes travel as text — the agent's file tools read the disk, which
  * does not have them yet.
  */
-export async function collectContext(request: vscode.ChatRequest): Promise<EditorContext> {
+export async function collectContext(references: readonly vscode.ChatPromptReference[] = []): Promise<EditorContext> {
   const editor = currentEditor();
   const folders = vscode.workspace.workspaceFolders ?? [];
   const active = editor ? vscode.workspace.getWorkspaceFolder(editor.document.uri) : undefined;
@@ -76,7 +76,7 @@ export async function collectContext(request: vscode.ChatRequest): Promise<Edito
   const others = openFileTabs().filter((u) => u.toString() !== editor?.document.uri.toString());
   if (others.length) lines.push("", `Also open: ${others.slice(0, 15).map((u) => display(u, root)).join(", ")}`);
 
-  for (const ref of request.references) {
+  for (const ref of references) {
     const attached = await describeReference(ref, root);
     if (attached) {
       lines.push("", attached.text);
@@ -132,6 +132,16 @@ function currentEditor(): vscode.TextEditor | undefined {
     }
   }
   return visible[0];
+}
+
+/** The file the chat window shows as "included": the current editor's, relative to its workspace folder. */
+export function currentFileLabel(): string | undefined {
+  const editor = currentEditor();
+  if (!editor || editor.document.uri.scheme !== "file") return undefined;
+  const root = vscode.workspace.getWorkspaceFolder(editor.document.uri);
+  const sel = editor.selection;
+  const range = sel.isEmpty ? "" : ` (lines ${sel.start.line + 1}–${sel.end.line + 1})`;
+  return display(editor.document.uri, root) + range;
 }
 
 /** The files open in any editor group, active tabs first, each once. */

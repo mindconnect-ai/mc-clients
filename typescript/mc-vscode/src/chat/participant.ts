@@ -1,16 +1,8 @@
 import * as vscode from "vscode";
 import type { ApprovalScope, Frame, MindconnectClient } from "../api/client";
-import { VSCODE_AGENT } from "../backchannel/provisioning";
 import { collectContext } from "../context/editorContext";
+import { configuredAgent, message, openSession, TurnMetadata } from "./session";
 import type { ServerManager } from "../server/serverManager";
-
-/** Kept on every answer, so the next turn of the same chat continues the same server session. */
-interface TurnMetadata {
-  sessionId: string;
-  /** The agent setting the session was opened for — a name or an id. */
-  agent: string;
-  workingDir?: string;
-}
 
 /**
  * @mindconnect in the VS Code chat. Each VS Code chat maps to one server
@@ -48,7 +40,7 @@ export function registerChatParticipant(
       return { errorDetails: { message: message(e) } };
     }
 
-    const context = await collectContext(request);
+    const context = await collectContext(request.references);
     const previous = request.command === "new" ? undefined : lastTurn(chat);
     let turn: TurnMetadata;
     try {
@@ -108,29 +100,6 @@ function lastTurn(chat: vscode.ChatContext): TurnMetadata | undefined {
   return undefined;
 }
 
-async function openSession(
-  client: MindconnectClient,
-  previous: TurnMetadata | undefined,
-  workingDir: string | undefined,
-  additionalDirs: string[],
-): Promise<TurnMetadata> {
-  if (!previous) {
-    const agent = configuredAgent();
-    const { id } = await client.findAgent(agent).catch(async (e) => {
-      // Without the back channel (external server) there is no vscode-assistant; its template does the job.
-      if (agent !== VSCODE_AGENT) throw e;
-      return client.findAgent("coding-assistant");
-    });
-    const session = await client.createSession(id, workingDir, additionalDirs);
-    return { sessionId: session.id, agent, workingDir };
-  }
-  if (workingDir && workingDir !== previous.workingDir) {
-    await client.changeWorkingDir(previous.sessionId, workingDir, additionalDirs);
-    return { ...previous, workingDir };
-  }
-  return previous;
-}
-
 /** The VS Code tools that wait on the user's diff review. */
 const REVIEWED_TOOLS = new Set(["vscode_edit_file", "vscode_write_file"]);
 
@@ -183,12 +152,4 @@ async function askApproval(frame: Frame, client: MindconnectClient, sessionId: s
   const scope: ApprovalScope = choice === "Allow for this session" ? "session" : "once";
   const approved = choice === "Allow once" || choice === "Allow for this session";
   await client.answerApproval(sessionId, callId, approved, scope);
-}
-
-function configuredAgent(): string {
-  return vscode.workspace.getConfiguration("mindconnect").get<string>("agent") || VSCODE_AGENT;
-}
-
-function message(e: unknown): string {
-  return e instanceof Error ? e.message : String(e);
 }

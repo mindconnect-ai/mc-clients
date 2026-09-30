@@ -1,7 +1,7 @@
 {
   "name": "mindconnect",
   "displayName": "MindConnect",
-  "description": "Run the MindConnect agent server locally and talk to its agents from the VS Code chat — with the file, selection and folder you are working in.",
+  "description": "Run the MindConnect agent server locally and talk to its agents from the VS Code chat \u2014 with the file, selection and folder you are working in.",
   "version": "0.1.3",
   "publisher": "mindconnect-ai",
   "license": "Apache-2.0",
@@ -33,7 +33,7 @@
         "id": "mindconnect.chat",
         "name": "mindconnect",
         "fullName": "MindConnect",
-        "description": "Ask a MindConnect agent — it knows your workspace, file and selection",
+        "description": "Ask a MindConnect agent \u2014 it knows your workspace, file and selection",
         "isSticky": true,
         "commands": [
           {
@@ -75,7 +75,8 @@
       {
         "command": "mindconnect.selectAgent",
         "title": "Select Agent",
-        "category": "MindConnect"
+        "category": "MindConnect",
+        "icon": "$(hubot)"
       },
       {
         "command": "mindconnect.showMenu",
@@ -116,6 +117,18 @@
         "command": "mindconnect.showView",
         "title": "Show MindConnect View",
         "category": "MindConnect"
+      },
+      {
+        "command": "mindconnect.chat.open",
+        "title": "Open Chat in Editor",
+        "category": "MindConnect",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "mindconnect.chat.new",
+        "title": "New Chat",
+        "category": "MindConnect",
+        "icon": "$(add)"
       }
     ],
     "menus": {
@@ -139,6 +152,16 @@
           "command": "mindconnect.adminUi.openInBrowser",
           "when": "activeWebviewPanelId == mindconnect.adminUiPanel",
           "group": "navigation@2"
+        },
+        {
+          "command": "mindconnect.chat.new",
+          "when": "activeWebviewPanelId == mindconnect.chatPanel",
+          "group": "navigation@1"
+        },
+        {
+          "command": "mindconnect.selectAgent",
+          "when": "activeWebviewPanelId == mindconnect.chatPanel",
+          "group": "navigation@2"
         }
       ],
       "commandPalette": [
@@ -152,6 +175,21 @@
         }
       ],
       "view/title": [
+        {
+          "command": "mindconnect.chat.new",
+          "when": "view == mindconnect.chatView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "mindconnect.selectAgent",
+          "when": "view == mindconnect.chatView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "mindconnect.chat.open",
+          "when": "view == mindconnect.chatView",
+          "group": "navigation@3"
+        },
         {
           "command": "mindconnect.server.start",
           "when": "view == mindconnect.server",
@@ -203,7 +241,7 @@
         "mindconnect.server.jarPath": {
           "type": "string",
           "default": "",
-          "description": "Run this executable jar instead of a downloaded release — for a local build (mc-agent-admin-ui-app-*-exec.jar)."
+          "description": "Run this executable jar instead of a downloaded release \u2014 for a local build (mc-agent-admin-ui-app-*-exec.jar)."
         },
         "mindconnect.server.javaHome": {
           "type": "string",
@@ -226,7 +264,7 @@
         "mindconnect.agent": {
           "type": "string",
           "default": "vscode-assistant",
-          "description": "The agent @mindconnect talks to — its name or id. vscode-assistant is set up by the extension: coding-assistant with changes reviewed as diffs in VS Code."
+          "description": "The agent @mindconnect talks to \u2014 its name or id. vscode-assistant is set up by the extension: coding-assistant with changes reviewed as diffs in VS Code."
         }
       }
     },
@@ -243,22 +281,35 @@
       "mindconnect": [
         {
           "type": "webview",
+          "id": "mindconnect.chatView",
+          "name": "Chat"
+        },
+        {
+          "type": "webview",
           "id": "mindconnect.server",
           "name": "Server"
         }
       ]
-    }
+    },
+    "keybindings": [
+      {
+        "command": "mindconnect.chatView.focus",
+        "key": "ctrl+alt+m",
+        "mac": "cmd+alt+m"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./ --noEmit && npm run bundle",
-    "bundle": "esbuild src/extension.ts --bundle --platform=node --target=node20 --format=cjs --external:vscode --sourcemap --outfile=out/extension.js",
+    "compile": "tsc -p ./ --noEmit && tsc -p tsconfig.webview.json --noEmit && npm run bundle",
+    "bundle": "esbuild src/extension.ts --bundle --platform=node --target=node20 --format=cjs --external:vscode --sourcemap --outfile=out/extension.js && esbuild src/webview/chat.ts --bundle --platform=browser --target=es2022 --format=iife --sourcemap --outfile=out/webview/chat.js",
     "watch": "npm run bundle -- --watch",
     "package": "vsce package",
     "pretest": "tsc -p tsconfig.test.json",
     "test": "node out-test/test/runTest.js"
   },
   "devDependencies": {
+    "@types/dompurify": "^3.0.5",
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.14.0",
     "@types/vscode": "~1.95.0",
@@ -270,6 +321,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.1",
+    "dompurify": "^3.4.16",
+    "marked": "^18.0.14",
     "zod": "^4.6.5"
   },
   "icon": "media/icon.png",
