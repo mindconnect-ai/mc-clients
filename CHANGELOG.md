@@ -24,6 +24,8 @@ evergreen download and installation instructions in
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-09-30
+
 ### Added
 
 - **VS Code extension:** **a chat window of its own.** The *Chat* view in the
