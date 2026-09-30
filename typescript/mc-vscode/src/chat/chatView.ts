@@ -142,6 +142,7 @@ export class ChatView implements vscode.WebviewViewProvider, vscode.Disposable {
     if (this.busy || !text.trim()) return;
     this.busy = true;
     const context = await collectContext();
+    this.server.log.info(`Chat context — ${context.summary}`);
     const file = withContext ? currentFileLabel() : undefined;
     this.broadcast({ type: "user", text, file });
     this.postState();

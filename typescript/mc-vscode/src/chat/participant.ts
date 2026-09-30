@@ -41,6 +41,7 @@ export function registerChatParticipant(
     }
 
     const context = await collectContext(request.references);
+    server.log.info(`Chat context — ${context.summary}`);
     const previous = request.command === "new" ? undefined : lastTurn(chat);
     let turn: TurnMetadata;
     try {
