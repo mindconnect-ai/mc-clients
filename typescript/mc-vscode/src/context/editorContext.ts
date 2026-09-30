@@ -72,10 +72,9 @@ export async function collectContext(request: vscode.ChatRequest): Promise<Edito
     }
   }
 
-  const others = vscode.window.visibleTextEditors
-    .map((e) => e.document.uri)
-    .filter((u) => u.scheme === "file" && u.toString() !== editor?.document.uri.toString());
-  if (others.length) lines.push("", `Also open: ${others.map((u) => display(u, root)).join(", ")}`);
+  // Every open file tab, hidden ones included — what "the other file" may mean.
+  const others = openFileTabs().filter((u) => u.toString() !== editor?.document.uri.toString());
+  if (others.length) lines.push("", `Also open: ${others.slice(0, 15).map((u) => display(u, root)).join(", ")}`);
 
   for (const ref of request.references) {
     const attached = await describeReference(ref, root);
@@ -113,16 +112,17 @@ export function trackActiveEditor(): vscode.Disposable {
 
 /**
  * The file the user is looking at: the active editor; else the last one that
- * was, while it is still on screen; else the file in the active tab of any
- * editor group (the chat may itself be an editor tab); else the first visible
- * file editor.
+ * was, as long as its file is still open — the chat is often a tab in the
+ * same editor group, and clicking it hides the file behind it without closing
+ * it; else the file in the active tab of any editor group; else the first
+ * visible file editor.
  */
 function currentEditor(): vscode.TextEditor | undefined {
   const active = vscode.window.activeTextEditor;
   if (active) return active;
   const visible = vscode.window.visibleTextEditors.filter((e) => e.document.uri.scheme === "file");
   const shown = (uri: vscode.Uri) => visible.find((e) => e.document.uri.toString() === uri.toString());
-  if (lastActive && shown(lastActive.document.uri)) return shown(lastActive.document.uri);
+  if (lastActive && !lastActive.document.isClosed) return shown(lastActive.document.uri) ?? lastActive;
   const groups = [vscode.window.tabGroups.activeTabGroup, ...vscode.window.tabGroups.all];
   for (const group of groups) {
     const input = group.activeTab?.input;
@@ -132,6 +132,21 @@ function currentEditor(): vscode.TextEditor | undefined {
     }
   }
   return visible[0];
+}
+
+/** The files open in any editor group, active tabs first, each once. */
+function openFileTabs(): vscode.Uri[] {
+  const seen = new Set<string>();
+  const uris: vscode.Uri[] = [];
+  const tabs = vscode.window.tabGroups.all.flatMap((g) => g.tabs);
+  for (const tab of [...tabs.filter((t) => t.isActive), ...tabs]) {
+    const input = tab.input;
+    if (input instanceof vscode.TabInputText && input.uri.scheme === "file" && !seen.has(input.uri.toString())) {
+      seen.add(input.uri.toString());
+      uris.push(input.uri);
+    }
+  }
+  return uris;
 }
 
 /** A #file or #selection attachment as text. */
