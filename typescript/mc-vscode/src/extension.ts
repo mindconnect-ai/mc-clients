@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 import { MindconnectClient } from "./api/client";
 import { BackChannel } from "./backchannel/backChannel";
+import { ChatView } from "./chat/chatView";
 import { registerChatParticipant } from "./chat/participant";
 import { trackActiveEditor } from "./context/editorContext";
 import { EnvStore } from "./server/envStore";
@@ -19,13 +20,18 @@ export function activate(context: vscode.ExtensionContext): void {
   const backChannel = new BackChannel(server, client);
   const adminUi = new AdminUi(server, context.extensionUri);
   const serverView = new ServerView(server, env, server.serverDir);
+  const chatView = new ChatView(server, client, backChannel, context.extensionUri);
 
   context.subscriptions.push(
     server,
     backChannel,
     adminUi,
     serverView,
+    chatView,
+    vscode.window.registerWebviewViewProvider(ChatView.viewId, chatView, { webviewOptions: { retainContextWhenHidden: true } }),
     vscode.window.registerWebviewViewProvider(ServerView.viewId, serverView),
+    vscode.commands.registerCommand("mindconnect.chat.open", () => chatView.openInEditor()),
+    vscode.commands.registerCommand("mindconnect.chat.new", () => chatView.newChat()),
     trackActiveEditor(),
     registerChatParticipant(server, client, backChannel, context.extensionUri),
     // An explicit start — unlike the chat, it does not wait for autoStart.
@@ -86,7 +92,8 @@ async function showMenu(server: ServerManager): Promise<void> {
     { label: "$(window) Open Admin UI", description: "LLM configs, agents, skills", command: "mindconnect.openAdminUi" },
     { label: "$(hubot) Select Agent", command: "mindconnect.selectAgent" },
     { label: "$(output) Show Server Log", command: "mindconnect.server.showLog" },
-    { label: "$(comment-discussion) Open Chat", command: "workbench.action.chat.open" },
+    { label: "$(comment-discussion) Open Chat", description: "MindConnect's own chat window", command: "mindconnect.chatView.focus" },
+    { label: "$(copilot) Ask @mindconnect in the VS Code chat", command: "workbench.action.chat.open" },
   ];
   const pick = await vscode.window.showQuickPick(items, { title: "MindConnect" });
   if (pick) await vscode.commands.executeCommand(pick.command, pick.command === "workbench.action.chat.open" ? "@mindconnect " : undefined);

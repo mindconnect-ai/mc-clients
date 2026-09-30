@@ -3,5 +3,8 @@
   "compilerOptions": {
     "outDir": "out-test",
     "noEmit": false
-  }
+  },
+  "exclude": [
+    "src/webview"
+  ]
 }

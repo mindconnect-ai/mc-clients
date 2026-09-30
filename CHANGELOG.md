@@ -24,6 +24,15 @@ evergreen download and installation instructions in
 
 ## [Unreleased]
 
+### Added
+
+- **VS Code extension:** **a chat window of its own.** The *Chat* view in the
+  MindConnect container (⌘⌥M / Ctrl+Alt+M, or as an editor tab) talks to the
+  agent without Copilot — it works in VSCodium and Cursor too, and when a
+  Copilot quota is used up. Streaming Markdown, tool and sub-agent cards,
+  approval buttons, Stop, New chat, and a chip naming the file and selection
+  that go with the message.
+
 ### Fixed
 
 - **VS Code extension:** **`@mindconnect` knows the open file even when the

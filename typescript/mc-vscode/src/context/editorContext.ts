@@ -11,6 +11,8 @@ export interface EditorContext {
   prompt: string;
   /** Files the block draws on, shown as references under the answer. */
   used: vscode.Uri[];
+  /** One line saying what was found — for the log, when a turn goes out without the file the user meant. */
+  summary: string;
 }
 
 const MAX_SELECTION_CHARS = 20_000;
@@ -27,7 +29,7 @@ const MAX_DIAGNOSTICS = 20;
  * Unsaved changes travel as text — the agent's file tools read the disk, which
  * does not have them yet.
  */
-export async function collectContext(request: vscode.ChatRequest): Promise<EditorContext> {
+export async function collectContext(references: readonly vscode.ChatPromptReference[] = []): Promise<EditorContext> {
   const editor = currentEditor();
   const folders = vscode.workspace.workspaceFolders ?? [];
   const active = editor ? vscode.workspace.getWorkspaceFolder(editor.document.uri) : undefined;
@@ -42,6 +44,24 @@ export async function collectContext(request: vscode.ChatRequest): Promise<Edito
   }
   if (folders.length > 1) {
     lines.push(`Other workspace folders: ${folders.filter((f) => f !== root).map((f) => f.uri.fsPath).join(", ")}`);
+  }
+
+  if (!editor) {
+    // No text editor, but maybe a tab of another kind is open — a Word or PDF
+    // document, a Markdown preview, a notebook, an image — which "the open file"
+    // may well mean. Name it, and say the agent cannot read it as text.
+    const tab = activeTab();
+    if (tab) {
+      lines.push("", `Active tab: ${tab.label} (${tab.kind}${tab.uri ? `, ${display(tab.uri, root)}` : ""}) — not a text editor`);
+      if (tab.uri) used.push(tab.uri);
+      // A Markdown file in a WYSIWYG editor is still a text file: read it from disk.
+      const text = tab.uri ? await textOnDisk(tab.uri) : undefined;
+      if (text !== undefined) lines.push(`Its content (read from disk):`, fence(languageOf(tab.uri!), truncate(text, MAX_REFERENCE_CHARS)));
+      else lines.push("Its content is not in this context.");
+    } else {
+      // Said outright: without it the model keeps the last turn's editor state.
+      lines.push("", "No editor tabs are open — no file is open right now.");
+    }
   }
 
   if (editor && editor.document.uri.scheme !== "output") {
@@ -72,11 +92,14 @@ export async function collectContext(request: vscode.ChatRequest): Promise<Edito
     }
   }
 
-  // Every open file tab, hidden ones included — what "the other file" may mean.
-  const others = openFileTabs().filter((u) => u.toString() !== editor?.document.uri.toString());
-  if (others.length) lines.push("", `Also open: ${others.slice(0, 15).map((u) => display(u, root)).join(", ")}`);
+  // Every open tab, hidden ones and other kinds included — what "the other file" may mean.
+  const current = editor?.document.uri.toString() ?? activeTab()?.uri?.toString();
+  const others = openTabs().filter((t) => t.uri?.toString() !== current);
+  if (others.length) {
+    lines.push("", `Also open: ${others.slice(0, 15).map((t) => (t.uri ? display(t.uri, root) : t.label) + (t.kind === "text" ? "" : ` (${t.kind})`)).join(", ")}`);
+  }
 
-  for (const ref of request.references) {
+  for (const ref of references) {
     const attached = await describeReference(ref, root);
     if (attached) {
       lines.push("", attached.text);
@@ -85,9 +108,14 @@ export async function collectContext(request: vscode.ChatRequest): Promise<Edito
   }
 
   const prompt = lines.length
-    ? `<editor-context>\nThe user is working in VS Code. This is where they are right now:\n${lines.join("\n")}\n</editor-context>\n\n`
+    ? `<editor-context>\nThe user is working in VS Code. This is where they are right now — this block replaces any editor state mentioned earlier in the conversation:\n${lines.join("\n")}\n</editor-context>\n\n`
     : "";
+  const tabs = openTabs();
+  const summary = `active editor: ${editor ? display(editor.document.uri, root) : "none"}; active tab: ${activeTab()?.label ?? "none"}; `
+    + `tabs: ${tabs.length}${tabs.length ? " (" + tabs.slice(0, 8).map((t) => `${t.label}:${t.kind}`).join(", ") + ")" : ""}; `
+    + `visible editors: ${vscode.window.visibleTextEditors.length}; workspace: ${root?.uri.fsPath ?? "none"}`;
   return {
+    summary,
     workingDir: root?.uri.scheme === "file" ? root.uri.fsPath : undefined,
     additionalDirs: folders.filter((f) => f !== root && f.uri.scheme === "file").map((f) => f.uri.fsPath),
     prompt,
@@ -134,19 +162,70 @@ function currentEditor(): vscode.TextEditor | undefined {
   return visible[0];
 }
 
-/** The files open in any editor group, active tabs first, each once. */
-function openFileTabs(): vscode.Uri[] {
+/** The file the chat window shows as "included": the current editor's, relative to its workspace folder. */
+export function currentFileLabel(): string | undefined {
+  const editor = currentEditor();
+  if (!editor || editor.document.uri.scheme !== "file") {
+    const tab = activeTab();
+    return tab ? `${tab.label} (${tab.kind})` : undefined;
+  }
+  const root = vscode.workspace.getWorkspaceFolder(editor.document.uri);
+  const sel = editor.selection;
+  const range = sel.isEmpty ? "" : ` (lines ${sel.start.line + 1}–${sel.end.line + 1})`;
+  return display(editor.document.uri, root) + range;
+}
+
+interface OpenTab {
+  label: string;
+  /** What kind of editor holds it — "text" for a file editor, else a word for the rest. */
+  kind: string;
+  uri?: vscode.Uri;
+}
+
+/** An editor tab of any kind as the agent can be told about it. */
+function describeTab(tab: vscode.Tab): OpenTab | undefined {
+  const input = tab.input;
+  if (input instanceof vscode.TabInputText) return { label: tab.label, kind: "text", uri: input.uri };
+  if (input instanceof vscode.TabInputTextDiff) return { label: tab.label, kind: "diff", uri: input.modified };
+  if (input instanceof vscode.TabInputNotebook) return { label: tab.label, kind: "notebook", uri: input.uri };
+  if (input instanceof vscode.TabInputCustom) return { label: tab.label, kind: customKind(input.viewType, input.uri), uri: input.uri };
+  if (input instanceof vscode.TabInputWebview) return { label: tab.label, kind: /markdown/i.test(input.viewType) ? "Markdown preview" : "webview" };
+  return undefined;
+}
+
+/** A custom editor named by what it shows, since its view type is an extension id. */
+function customKind(viewType: string, uri: vscode.Uri): string {
+  const ext = path.extname(uri.fsPath).toLowerCase();
+  if (ext === ".docx" || ext === ".doc") return "Word document";
+  if (ext === ".pdf") return "PDF";
+  if (/\.(png|jpe?g|gif|svg|webp|bmp)$/.test(ext)) return "image";
+  return viewType.split(".").pop() ?? "custom editor";
+}
+
+/** The active tab of the active group, else of any group, when it is not a text editor. */
+function activeTab(): OpenTab | undefined {
+  const groups = [vscode.window.tabGroups.activeTabGroup, ...vscode.window.tabGroups.all];
+  for (const group of groups) {
+    const tab = group.activeTab && describeTab(group.activeTab);
+    if (tab && (tab.kind !== "text" || tab.uri?.scheme === "file")) return tab;
+  }
+  return undefined;
+}
+
+/** Every open tab in every group, active tabs first, each file once. */
+function openTabs(): OpenTab[] {
   const seen = new Set<string>();
-  const uris: vscode.Uri[] = [];
+  const out: OpenTab[] = [];
   const tabs = vscode.window.tabGroups.all.flatMap((g) => g.tabs);
   for (const tab of [...tabs.filter((t) => t.isActive), ...tabs]) {
-    const input = tab.input;
-    if (input instanceof vscode.TabInputText && input.uri.scheme === "file" && !seen.has(input.uri.toString())) {
-      seen.add(input.uri.toString());
-      uris.push(input.uri);
-    }
+    const t = describeTab(tab);
+    if (!t) continue;
+    const key = t.uri?.toString() ?? `${t.kind}:${t.label}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(t);
   }
-  return uris;
+  return out;
 }
 
 /** A #file or #selection attachment as text. */
@@ -198,6 +277,25 @@ function numbered(doc: vscode.TextDocument, from: number, to: number): string {
   const out: string[] = [];
   for (let i = from; i <= to; i++) out.push(`${String(i + 1).padStart(5)}  ${doc.lineAt(i).text}`);
   return out.join("\n");
+}
+
+const TEXT_EXTENSIONS = new Set([".md", ".markdown", ".txt", ".json", ".yaml", ".yml", ".xml", ".csv", ".html", ".css", ".js", ".ts", ".py", ".java", ".sh"]);
+
+/** The file's text when it is a text file on disk and not too large; undefined otherwise. */
+async function textOnDisk(uri: vscode.Uri): Promise<string | undefined> {
+  if (uri.scheme !== "file" || !TEXT_EXTENSIONS.has(path.extname(uri.fsPath).toLowerCase())) return undefined;
+  try {
+    const stat = await vscode.workspace.fs.stat(uri);
+    if (stat.size > 2_000_000) return undefined;
+    return new TextDecoder().decode(await vscode.workspace.fs.readFile(uri));
+  } catch {
+    return undefined;
+  }
+}
+
+function languageOf(uri: vscode.Uri): string {
+  const ext = path.extname(uri.fsPath).toLowerCase().slice(1);
+  return { md: "markdown", markdown: "markdown", yml: "yaml", ts: "typescript", js: "javascript", py: "python", sh: "bash" }[ext] ?? ext;
 }
 
 function fence(language: string, text: string): string {
