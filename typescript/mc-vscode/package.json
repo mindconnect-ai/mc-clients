@@ -1,8 +1,8 @@
 {
   "name": "mindconnect",
   "displayName": "MindConnect",
-  "description": "Run the MindConnect agent server locally and talk to its agents from the VS Code chat \u2014 with the file, selection and folder you are working in.",
-  "version": "0.1.3",
+  "description": "Run the MindConnect agent server locally and talk to its agents from the VS Code chat — with the file, selection and folder you are working in.",
+  "version": "1.5.0",
   "publisher": "mindconnect-ai",
   "license": "Apache-2.0",
   "repository": {
@@ -33,7 +33,7 @@
         "id": "mindconnect.chat",
         "name": "mindconnect",
         "fullName": "MindConnect",
-        "description": "Ask a MindConnect agent \u2014 it knows your workspace, file and selection",
+        "description": "Ask a MindConnect agent — it knows your workspace, file and selection",
         "isSticky": true,
         "commands": [
           {
@@ -241,7 +241,7 @@
         "mindconnect.server.jarPath": {
           "type": "string",
           "default": "",
-          "description": "Run this executable jar instead of a downloaded release \u2014 for a local build (mc-agent-admin-ui-app-*-exec.jar)."
+          "description": "Run this executable jar instead of a downloaded release — for a local build (mc-agent-admin-ui-app-*-exec.jar)."
         },
         "mindconnect.server.javaHome": {
           "type": "string",
@@ -264,7 +264,7 @@
         "mindconnect.agent": {
           "type": "string",
           "default": "vscode-assistant",
-          "description": "The agent @mindconnect talks to \u2014 its name or id. vscode-assistant is set up by the extension: coding-assistant with changes reviewed as diffs in VS Code."
+          "description": "The agent @mindconnect talks to — its name or id. vscode-assistant is set up by the extension: coding-assistant with changes reviewed as diffs in VS Code."
         }
       }
     },

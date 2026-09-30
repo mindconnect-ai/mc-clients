@@ -14,7 +14,7 @@
     </parent>
 
     <artifactId>mc-clients-javafx</artifactId>
-    <version>1.4.0</version>
+    <version>1.5.0</version>
     <packaging>pom</packaging>
     <name>mc-clients-javafx</name>
     <description>JavaFX desktop clients for the Mindconnect platform (mc-clients/javafx)</description>
