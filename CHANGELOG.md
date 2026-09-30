@@ -24,6 +24,15 @@ evergreen download and installation instructions in
 
 ## [Unreleased]
 
+### Fixed
+
+- **VS Code extension:** **`@mindconnect` knows the open file even when the
+  chat tab hides it.** With the chat as a tab in the same editor group, clicking
+  it put the file out of sight, and the chat went out with only the workspace
+  folder — "which file is open?" got a guess. The last file you were in now
+  counts as long as it is still open, and "also open" lists every file tab,
+  hidden ones included.
+
 ### Added
 
 - **The VS Code extension comes with every release** as
